@@ -30,9 +30,10 @@ from pathlib import Path, PurePosixPath
 from typing import Any, Iterable, Iterator, Mapping, Sequence, cast
 from urllib.parse import urlsplit, urlunsplit
 
+from . import fsat
 from .json_utils import parse_finite_json_float
 
-from .paths import canonical, is_relative_to
+from .paths import canonical, is_relative_to, is_same_object
 from .transaction import (
     BUNDLE_SCHEMA,
     TransactionValidationError,
@@ -177,17 +178,7 @@ def _json_object(value: Mapping[str, Any] | None, *, field: str) -> dict[str, An
 
 
 def _process_alive(pid: int) -> bool | None:
-    if pid <= 0:
-        return False
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        return True
-    except OSError:
-        return None
-    return True
+    return fsat.process_alive(pid)
 
 
 def _safe_runtime_dir(vault_root: Path) -> Path:
@@ -208,7 +199,7 @@ def _safe_runtime_dir(vault_root: Path) -> Path:
             create=True,
         )
     except OSError as exc:
-        if isinstance(exc, _PlatformConfinementUnavailable):
+        if not fsat.supported() or isinstance(exc, _PlatformConfinementUnavailable):
             raise CaptureValidationError(
                 "UNSUPPORTED_PLATFORM", _UNSUPPORTED_PLATFORM_MESSAGE
             ) from exc
@@ -233,7 +224,7 @@ def _runtime_entry_exists(runtime_fd: int, name: str) -> bool:
     """Inspect one fixed runtime leaf without following an alias."""
 
     try:
-        os.stat(name, dir_fd=runtime_fd, follow_symlinks=False)
+        fsat.stat_at(runtime_fd, name)
     except FileNotFoundError:
         return False
     except OSError as exc:
@@ -258,7 +249,7 @@ def _read_runtime_regular(
             "INVALID_READ_LIMIT", "read limit must be positive"
         )
     try:
-        metadata = os.stat(name, dir_fd=runtime_fd, follow_symlinks=False)
+        metadata = fsat.stat_at(runtime_fd, name)
     except FileNotFoundError:
         if missing_ok:
             return None
@@ -292,11 +283,11 @@ def _read_runtime_regular(
         flags = (
             os.O_RDONLY
             | getattr(os, "O_CLOEXEC", 0)
-            | getattr(os, "O_NOFOLLOW", 0)
+            | fsat.O_NOFOLLOW
             | getattr(os, "O_NONBLOCK", 0)
         )
         try:
-            descriptor = os.open(name, flags, dir_fd=runtime_fd)
+            descriptor = fsat.open_at(runtime_fd, name, flags)
         except FileNotFoundError:
             if missing_ok:
                 return None
@@ -357,33 +348,28 @@ def _atomic_runtime_write(runtime_fd: int, name: str, data: bytes) -> None:
     temporary = f".{name}.capture-{os.getpid()}-{uuid.uuid4().hex}"
     descriptor = -1
     try:
-        descriptor = os.open(
+        descriptor = fsat.open_at(
+            runtime_fd,
             temporary,
             os.O_WRONLY
             | os.O_CREAT
             | os.O_EXCL
             | getattr(os, "O_CLOEXEC", 0)
-            | getattr(os, "O_NOFOLLOW", 0),
+            | fsat.O_NOFOLLOW,
             0o600,
-            dir_fd=runtime_fd,
         )
         with os.fdopen(descriptor, "wb") as handle:
             descriptor = -1
             handle.write(data)
             handle.flush()
             os.fsync(handle.fileno())
-        os.replace(
-            temporary,
-            name,
-            src_dir_fd=runtime_fd,
-            dst_dir_fd=runtime_fd,
-        )
-        os.fsync(runtime_fd)
+        fsat.rename_at(runtime_fd, temporary, runtime_fd, name)
+        fsat.fsync_dir(runtime_fd)
     finally:
         if descriptor >= 0:
             os.close(descriptor)
         try:
-            os.unlink(temporary, dir_fd=runtime_fd)
+            fsat.unlink_at(runtime_fd, temporary)
         except FileNotFoundError:
             pass
 
@@ -1516,6 +1502,33 @@ class CaptureQueueLock:
             return True
         return same_host and alive is False
 
+    @staticmethod
+    def _reap_released(
+        parent_fd: int, quarantine_name: str, pinned: os.stat_result
+    ) -> None:
+        try:
+            fsat.rename_at(parent_fd, "queue.lock", parent_fd, quarantine_name)
+        except PermissionError as exc:
+            raise CaptureConflict(
+                "QUEUE_LOCK_TIMEOUT", "capture queue is locked by a live process"
+            ) from exc
+        try:
+            if not is_same_object(pinned, fsat.stat_at(parent_fd, quarantine_name)):
+                raise CaptureConflict(
+                    "QUEUE_LOCK_OWNERSHIP_LOST",
+                    "capture queue lock changed during stale-lock quarantine",
+                )
+            quarantine_fd = _open_lock_directory_at(parent_fd, quarantine_name)
+            try:
+                fsat.unlink_at(quarantine_fd, "owner.json")
+            except FileNotFoundError:
+                pass
+            finally:
+                os.close(quarantine_fd)
+            fsat.rmdir_at(parent_fd, quarantine_name)
+        except OSError:
+            pass
+
     def acquire(self) -> None:
         if self.acquired:
             return
@@ -1523,7 +1536,7 @@ class CaptureQueueLock:
         try:
             root_fd = _open_lock_root_fd(self.vault_root)
         except OSError as exc:
-            if isinstance(exc, _PlatformConfinementUnavailable):
+            if not fsat.supported() or isinstance(exc, _PlatformConfinementUnavailable):
                 raise CaptureValidationError(
                     "UNSUPPORTED_PLATFORM", _UNSUPPORTED_PLATFORM_MESSAGE
                 ) from exc
@@ -1562,9 +1575,9 @@ class CaptureQueueLock:
             self._parent_fd = parent_fd
             while True:
                 try:
-                    os.mkdir("queue.lock", mode=0o700, dir_fd=parent_fd)
+                    fsat.mkdir_at(parent_fd, "queue.lock")
                     try:
-                        os.fsync(parent_fd)
+                        fsat.fsync_dir(parent_fd)
                     except OSError:
                         pass
                 except FileExistsError:
@@ -1587,11 +1600,17 @@ class CaptureQueueLock:
                                         "capture queue lock changed during stale-lock inspection",
                                     )
                                 quarantine_name = f"queue.lock.reaping-{os.getpid()}-{uuid.uuid4().hex}"
-                                os.rename(
-                                    "queue.lock",
-                                    quarantine_name,
-                                    src_dir_fd=parent_fd,
-                                    dst_dir_fd=parent_fd,
+                                if os.name == "nt":
+                                    # a held directory cannot be renamed or removed on Windows
+                                    pinned = os.fstat(existing_fd)
+                                    os.close(existing_fd)
+                                    existing_fd = None
+                                    self._reap_released(
+                                        parent_fd, quarantine_name, pinned
+                                    )
+                                    continue
+                                fsat.rename_at(
+                                    parent_fd, "queue.lock", parent_fd, quarantine_name
                                 )
                                 if not _lock_entry_matches(
                                     parent_fd, quarantine_name, existing_fd
@@ -1615,7 +1634,8 @@ class CaptureQueueLock:
                                     pass
                                 continue
                         finally:
-                            os.close(existing_fd)
+                            if existing_fd is not None:
+                                os.close(existing_fd)
                     if time.monotonic() >= deadline:
                         raise CaptureConflict(
                             "QUEUE_LOCK_TIMEOUT",

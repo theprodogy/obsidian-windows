@@ -6,6 +6,7 @@ does not execute a model, open a network connection, or mutate a vault.
 
 from __future__ import annotations
 
+import errno
 import hashlib
 import json
 import os
@@ -14,13 +15,13 @@ import stat
 from pathlib import Path
 from typing import Any, Mapping
 
+from . import fsat
 from .json_utils import strict_json_loads
 from .paths import (
     directory_open_flags,
     is_name_surrogate,
     linked_path_hint,
     read_open_flags,
-    supports_confined_dirfd,
 )
 
 
@@ -69,18 +70,20 @@ def _read_regular(path: Path, *, limit: int, label: str) -> bytes:
     descriptor = -1
     directory_descriptor = -1
     try:
-        if supports_confined_dirfd():
-            directory_descriptor = os.open(path.anchor, directory_open_flags())
+        if fsat.supported():
+            directory_descriptor = fsat.open_dir(path.anchor)
             for part in path.parts[1:-1]:
-                child_descriptor = os.open(
-                    part, directory_open_flags(), dir_fd=directory_descriptor
+                child_descriptor = fsat.open_at(
+                    directory_descriptor,
+                    part,
+                    directory_open_flags() | fsat.O_DIRECTORY | fsat.O_NOFOLLOW,
                 )
                 os.close(directory_descriptor)
                 directory_descriptor = child_descriptor
-            descriptor = os.open(
+            descriptor = fsat.open_at(
+                directory_descriptor,
                 path.name,
-                read_open_flags() | getattr(os, "O_NONBLOCK", 0),
-                dir_fd=directory_descriptor,
+                read_open_flags() | getattr(os, "O_NONBLOCK", 0) | fsat.O_NOFOLLOW,
             )
         else:
             cursor = Path(path.anchor)
@@ -111,6 +114,8 @@ def _read_regular(path: Path, *, limit: int, label: str) -> bytes:
         data = b"".join(chunks)
         after = os.fstat(descriptor)
     except OSError as exc:
+        if exc.errno == errno.EISDIR:
+            raise PromptEvaluationError(f"{label} must be a regular non-symlink file") from exc
         hint = linked_path_hint(path)
         if hint:
             raise PromptEvaluationError(f"cannot read {label}: {hint}") from exc

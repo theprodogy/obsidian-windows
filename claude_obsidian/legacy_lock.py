@@ -23,6 +23,7 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Iterator, Sequence
 
+from . import fsat
 from .paths import VaultSelectionError, assert_not_plugin_tree, canonical
 from .transaction import (
     MutationLock,
@@ -189,10 +190,11 @@ def _parse_arguments(argv: Sequence[str]) -> ParsedArguments:
 
 
 def _supports_confined_runtime() -> bool:
+    if os.name == "nt":
+        return fsat.supported()
     required_dir_fd = (os.open, os.mkdir, os.stat, os.unlink, os.link)
     return (
-        os.name != "nt"
-        and hasattr(os, "O_DIRECTORY")
+        fsat.supported()
         and hasattr(os, "O_NOFOLLOW")
         and os.listdir in os.supports_fd
         and all(function in os.supports_dir_fd for function in required_dir_fd)
@@ -202,12 +204,17 @@ def _supports_confined_runtime() -> bool:
 
 
 def _directory_flags() -> int:
-    return os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_CLOEXEC", 0) | os.O_NOFOLLOW
+    return (
+        os.O_RDONLY
+        | fsat.O_DIRECTORY
+        | getattr(os, "O_CLOEXEC", 0)
+        | fsat.O_NOFOLLOW
+    )
 
 
 def _fsync_directory(descriptor: int) -> None:
     try:
-        os.fsync(descriptor)
+        fsat.fsync_dir(descriptor)
     except OSError as exc:
         if exc.errno not in {errno.EINVAL, errno.ENOTSUP, errno.EROFS}:
             raise _runtime_error(f"cannot flush legacy lock directory: {exc}") from exc
@@ -217,7 +224,7 @@ def _open_root(vault_root: Path) -> int:
     if not _supports_confined_runtime():
         raise _runtime_error("this platform lacks no-follow directory-FD operations")
     try:
-        descriptor = os.open(vault_root, _directory_flags())
+        descriptor = fsat.open_dir(vault_root)
         metadata = os.fstat(descriptor)
     except OSError as exc:
         raise _runtime_error(f"cannot open selected vault safely: {exc}") from exc
@@ -234,17 +241,17 @@ def _open_child_directory(
     create: bool,
 ) -> int | None:
     try:
-        descriptor = os.open(name, _directory_flags(), dir_fd=parent_descriptor)
+        descriptor = fsat.open_at(parent_descriptor, name, _directory_flags())
     except FileNotFoundError:
         if not create:
             return None
         try:
-            os.mkdir(name, 0o700, dir_fd=parent_descriptor)
+            fsat.mkdir_at(parent_descriptor, name)
             _fsync_directory(parent_descriptor)
-            descriptor = os.open(name, _directory_flags(), dir_fd=parent_descriptor)
+            descriptor = fsat.open_at(parent_descriptor, name, _directory_flags())
         except FileExistsError:
             try:
-                descriptor = os.open(name, _directory_flags(), dir_fd=parent_descriptor)
+                descriptor = fsat.open_at(parent_descriptor, name, _directory_flags())
             except OSError as exc:
                 raise _runtime_error(
                     f"legacy runtime component is not a safe directory: {name}: {exc}"
@@ -358,7 +365,7 @@ def _validate_target_path(vault_root: Path, value: str) -> None:
     try:
         for index, part in enumerate(parts):
             try:
-                metadata = os.stat(part, dir_fd=descriptor, follow_symlinks=False)
+                metadata = fsat.stat_at(descriptor, part)
             except FileNotFoundError:
                 return
             except OSError as exc:
@@ -372,7 +379,7 @@ def _validate_target_path(vault_root: Path, value: str) -> None:
             if not stat.S_ISDIR(metadata.st_mode):
                 raise _path_error(f"path parent is not a directory: {value}")
             try:
-                child = os.open(part, _directory_flags(), dir_fd=descriptor)
+                child = fsat.open_at(descriptor, part, _directory_flags())
             except OSError as exc:
                 raise _path_error(
                     f"cannot inspect vault-relative path {value}: {exc}"
@@ -397,17 +404,22 @@ def _portable_lock_key(path: str) -> str:
 
 def _read_bounded_regular(descriptor: int, name: str) -> bytes | None:
     try:
-        before = os.stat(name, dir_fd=descriptor, follow_symlinks=False)
+        before = fsat.stat_at(descriptor, name)
     except FileNotFoundError:
         return None
     except OSError:
         return b""
     if not stat.S_ISREG(before.st_mode) or before.st_size > MAX_RECORD_BYTES:
         return b""
-    flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0) | os.O_NOFOLLOW
+    flags = (
+        os.O_RDONLY
+        | getattr(os, "O_CLOEXEC", 0)
+        | fsat.O_NOFOLLOW
+        | getattr(os, "O_BINARY", 0)
+    )
     opened = -1
     try:
-        opened = os.open(name, flags, dir_fd=descriptor)
+        opened = fsat.open_at(descriptor, name, flags)
         current = os.fstat(opened)
         if (
             not stat.S_ISREG(current.st_mode)
@@ -468,7 +480,7 @@ def _read_record(descriptor: int, name: str) -> RecordRead:
 
 def _unlink(descriptor: int, name: str) -> bool:
     try:
-        os.unlink(name, dir_fd=descriptor)
+        fsat.unlink_at(descriptor, name)
     except FileNotFoundError:
         return False
     except OSError as exc:
@@ -493,24 +505,19 @@ def _atomic_create(descriptor: int, name: str, data: bytes) -> bool:
         | os.O_CREAT
         | os.O_EXCL
         | getattr(os, "O_CLOEXEC", 0)
-        | os.O_NOFOLLOW
+        | fsat.O_NOFOLLOW
+        | getattr(os, "O_BINARY", 0)
     )
     file_descriptor = -1
     linked = False
     try:
-        file_descriptor = os.open(temporary, flags, 0o600, dir_fd=descriptor)
+        file_descriptor = fsat.open_at(descriptor, temporary, flags, 0o600)
         _write_all(file_descriptor, data)
         os.fsync(file_descriptor)
         os.close(file_descriptor)
         file_descriptor = -1
         try:
-            os.link(
-                temporary,
-                name,
-                src_dir_fd=descriptor,
-                dst_dir_fd=descriptor,
-                follow_symlinks=False,
-            )
+            fsat.link_at(descriptor, temporary, descriptor, name)
             linked = True
         except FileExistsError:
             return False
@@ -522,7 +529,7 @@ def _atomic_create(descriptor: int, name: str, data: bytes) -> bool:
         if file_descriptor >= 0:
             os.close(file_descriptor)
         try:
-            os.unlink(temporary, dir_fd=descriptor)
+            fsat.unlink_at(descriptor, temporary)
         except FileNotFoundError:
             pass
         except OSError:
@@ -571,15 +578,12 @@ def _record_names(descriptor: int) -> list[str]:
     try:
         names: list[str] = []
         count = 0
-        with os.scandir(descriptor) as entries:
-            for entry in entries:
-                count += 1
-                if count > MAX_LOCK_DIRECTORY_ENTRIES:
-                    raise _runtime_error(
-                        "legacy lock directory exceeds its entry limit"
-                    )
-                if entry.name.endswith(".lock"):
-                    names.append(entry.name)
+        for entry in fsat.listdir_fd(descriptor):
+            count += 1
+            if count > MAX_LOCK_DIRECTORY_ENTRIES:
+                raise _runtime_error("legacy lock directory exceeds its entry limit")
+            if entry.endswith(".lock"):
+                names.append(entry)
         return sorted(names)
     except OSError as exc:
         raise _runtime_error(

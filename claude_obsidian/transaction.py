@@ -24,6 +24,7 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Any, Callable, Iterable, Mapping, Sequence
 
+from . import fsat
 from .json_utils import parse_finite_json_float
 from .limits import (
     CANONICAL_LEDGER_PATHS,
@@ -40,7 +41,6 @@ from .paths import (
     is_name_surrogate,
     is_same_object,
     read_open_flags,
-    supports_confined_dirfd,
 )
 
 
@@ -441,7 +441,7 @@ def safe_transactions_root(vault_root: Path | str, *, create: bool = False) -> P
 
 
 def _supports_confined_dirfd() -> bool:
-    return supports_confined_dirfd()
+    return fsat.supported()
 
 
 def _open_parent_directory(
@@ -468,7 +468,7 @@ def _open_parent_directory(
         else _safe_vault_path(vault_root, relative, existing=existing)[0]
     )
     parts = PurePosixPath(normalized).parts
-    flags = directory_open_flags()
+    flags = directory_open_flags() | fsat.O_DIRECTORY | fsat.O_NOFOLLOW
     if meta_fd is not None and parts[0] == ".vault-meta":
         descriptor = os.dup(meta_fd)
         walk_parts = parts[1:-1]
@@ -476,19 +476,19 @@ def _open_parent_directory(
         descriptor = (
             os.dup(root_fd)
             if root_fd is not None
-            else os.open(canonical(vault_root), flags)
+            else fsat.open_dir(canonical(vault_root))
         )
         walk_parts = parts[:-1]
     try:
         for part in walk_parts:
             try:
-                child = os.open(part, flags, dir_fd=descriptor)
+                child = fsat.open_at(descriptor, part, flags)
             except FileNotFoundError:
                 if not create:
                     raise
-                os.mkdir(part, 0o755, dir_fd=descriptor)
-                os.fsync(descriptor)
-                child = os.open(part, flags, dir_fd=descriptor)
+                fsat.mkdir_at(descriptor, part, 0o755)
+                fsat.fsync_dir(descriptor)
+                child = fsat.open_at(descriptor, part, flags)
             os.close(descriptor)
             descriptor = child
         return descriptor, parts[-1]
@@ -511,13 +511,13 @@ def _assert_no_existing_portable_alias(
         if root_fd is not None
         else _safe_vault_path(vault_root, relative)[0]
     )
-    flags = directory_open_flags()
+    flags = directory_open_flags() | fsat.O_DIRECTORY | fsat.O_NOFOLLOW
     handle: int | Path
     if root_fd is not None:
         handle = os.dup(root_fd)
     elif _supports_confined_dirfd():
         try:
-            handle = os.open(vault_root, flags)
+            handle = fsat.open_dir(vault_root)
         except FileNotFoundError:
             return
     else:
@@ -543,15 +543,16 @@ def _assert_no_existing_portable_alias(
                         f"cannot enumerate siblings for {normalized}: {exc}",
                     ) from exc
             try:
-                names: list[str] = []
-                with os.scandir(handle) as entries:
-                    for entry in entries:
-                        names.append(entry.name)
-                        if len(names) > MAX_PORTABLE_SIBLING_ENTRIES:
-                            raise TransactionValidationError(
-                                "VAULT_DIRECTORY_LIMIT",
-                                f"directory containing {normalized} exceeds the portable-name audit limit",
-                            )
+                names = (
+                    fsat.listdir_fd(handle)
+                    if isinstance(handle, int)
+                    else os.listdir(handle)
+                )
+                if len(names) > MAX_PORTABLE_SIBLING_ENTRIES:
+                    raise TransactionValidationError(
+                        "VAULT_DIRECTORY_LIMIT",
+                        f"directory containing {normalized} exceeds the portable-name audit limit",
+                    )
             except FileNotFoundError:
                 if isinstance(handle, Path):
                     return
@@ -581,9 +582,12 @@ def _assert_no_existing_portable_alias(
                 if index == 0 and part == ".vault-meta" and meta_fd is not None:
                     child = os.dup(meta_fd)
                 else:
-                    child = os.open(part, flags, dir_fd=handle)
-            except (FileNotFoundError, NotADirectoryError):
-                return
+                    child = fsat.open_at(handle, part, flags)
+            except OSError as exc:
+                # POSIX reports a symlinked directory as ENOTDIR, fsat on Windows as ELOOP
+                if isinstance(exc, (FileNotFoundError, NotADirectoryError)) or exc.errno == errno.ELOOP:
+                    return
+                raise
             os.close(handle)
             handle = child
     finally:
@@ -638,7 +642,7 @@ def _safe_hash(
         try:
             flags = read_open_flags()
             try:
-                descriptor = os.open(leaf, flags, dir_fd=parent_descriptor)
+                descriptor = fsat.open_at(parent_descriptor, leaf, flags)
             except FileNotFoundError:
                 return None
         finally:
@@ -689,7 +693,7 @@ def _safe_file_state(
                     root_fd=root_fd,
                     meta_fd=meta_fd,
                 )
-                descriptor = os.open(leaf, read_open_flags(), dir_fd=parent_descriptor)
+                descriptor = fsat.open_at(parent_descriptor, leaf, read_open_flags())
             except FileNotFoundError:
                 return None, None
             except OSError as exc:
@@ -802,7 +806,7 @@ def read_vault_regular(
                     meta_fd=meta_fd,
                     existing=existing,
                 )
-                descriptor = os.open(leaf, read_open_flags(), dir_fd=parent_descriptor)
+                descriptor = fsat.open_at(parent_descriptor, leaf, read_open_flags())
             except FileNotFoundError:
                 if missing_ok:
                     return None
@@ -908,27 +912,22 @@ def _atomic_vault_write(
             | os.O_CREAT
             | os.O_EXCL
             | getattr(os, "O_CLOEXEC", 0)
-            | getattr(os, "O_NOFOLLOW", 0)
+            | fsat.O_NOFOLLOW
         )
-        descriptor = os.open(temporary, flags, 0o600, dir_fd=parent_descriptor)
+        descriptor = fsat.open_at(parent_descriptor, temporary, flags, 0o600)
         with os.fdopen(descriptor, "wb") as handle:
             descriptor = -1
             handle.write(data)
             handle.flush()
             os.fsync(handle.fileno())
-            os.fchmod(handle.fileno(), mode if mode is not None else 0o600)
-        os.replace(
-            temporary,
-            leaf,
-            src_dir_fd=parent_descriptor,
-            dst_dir_fd=parent_descriptor,
-        )
-        os.fsync(parent_descriptor)
+            fsat.fchmod(handle.fileno(), mode if mode is not None else 0o600)
+        fsat.rename_at(parent_descriptor, temporary, parent_descriptor, leaf)
+        fsat.fsync_dir(parent_descriptor)
     finally:
         if descriptor >= 0:
             os.close(descriptor)
         try:
-            os.unlink(temporary, dir_fd=parent_descriptor)
+            fsat.unlink_at(parent_descriptor, temporary)
         except FileNotFoundError:
             pass
         finally:
@@ -1002,7 +1001,7 @@ def _confined_vault_unlink(
     try:
         flags = read_open_flags()
         try:
-            descriptor = os.open(leaf, flags, dir_fd=parent_descriptor)
+            descriptor = fsat.open_at(parent_descriptor, leaf, flags)
         except OSError as exc:
             raise TransactionRecoveryError(
                 "ROLLBACK_TARGET_CHANGED",
@@ -1024,7 +1023,7 @@ def _confined_vault_unlink(
                 "ROLLBACK_TARGET_CHANGED",
                 f"rollback target bytes changed: {normalized}",
             )
-        current = os.stat(leaf, dir_fd=parent_descriptor, follow_symlinks=False)
+        current = fsat.stat_at(parent_descriptor, leaf)
         if not stat.S_ISREG(current.st_mode) or (current.st_dev, current.st_ino) != (
             opened.st_dev,
             opened.st_ino,
@@ -1033,8 +1032,8 @@ def _confined_vault_unlink(
                 "ROLLBACK_TARGET_CHANGED",
                 f"rollback target changed during verification: {normalized}",
             )
-        os.unlink(leaf, dir_fd=parent_descriptor)
-        os.fsync(parent_descriptor)
+        fsat.unlink_at(parent_descriptor, leaf)
+        fsat.fsync_dir(parent_descriptor)
     finally:
         if descriptor >= 0:
             os.close(descriptor)
@@ -1120,29 +1119,31 @@ def _assert_no_portable_vault_leaf_alias_at(
         )
     count = 0
     try:
-        with os.scandir(parent) as entries:
-            for entry in entries:
-                count += 1
-                if count > MAX_PORTABLE_SIBLING_ENTRIES:
-                    raise TransactionValidationError(
-                        "VAULT_DIRECTORY_LIMIT",
-                        "vault parent exceeds the portable-name audit limit",
-                    )
-                if entry.name != leaf and _portable_name_key(
-                    entry.name
-                ) == _portable_name_key(leaf):
-                    if self_lstat is not None and _is_leaf_itself(
-                        parent, entry.name, self_lstat
-                    ):
-                        # On case-insensitive filesystems (APFS, NTFS) the
-                        # on-disk spelling of the vault itself can differ from
-                        # the spelling the caller typed; that is the same
-                        # object, not an alias.
-                        continue
-                    raise TransactionValidationError(
-                        "CASEFOLD_PATH_ALIAS",
-                        f"vault parent already contains a portable alias for {leaf}: {entry.name}",
-                    )
+        entry_names = (
+            fsat.listdir_fd(parent) if isinstance(parent, int) else os.listdir(parent)
+        )
+        for entry_name in entry_names:
+            count += 1
+            if count > MAX_PORTABLE_SIBLING_ENTRIES:
+                raise TransactionValidationError(
+                    "VAULT_DIRECTORY_LIMIT",
+                    "vault parent exceeds the portable-name audit limit",
+                )
+            if entry_name != leaf and _portable_name_key(
+                entry_name
+            ) == _portable_name_key(leaf):
+                if self_lstat is not None and _is_leaf_itself(
+                    parent, entry_name, self_lstat
+                ):
+                    # On case-insensitive filesystems (APFS, NTFS) the
+                    # on-disk spelling of the vault itself can differ from
+                    # the spelling the caller typed; that is the same
+                    # object, not an alias.
+                    continue
+                raise TransactionValidationError(
+                    "CASEFOLD_PATH_ALIAS",
+                    f"vault parent already contains a portable alias for {leaf}: {entry_name}",
+                )
     except OSError as exc:
         raise TransactionValidationError(
             "UNSAFE_VAULT_IDENTITY", f"cannot enumerate vault parent: {exc}"
@@ -1161,7 +1162,7 @@ def _is_leaf_itself(parent: int | Path, name: str, self_lstat: os.stat_result) -
 
     try:
         if isinstance(parent, int):
-            entry_stat = os.lstat(name, dir_fd=parent)
+            entry_stat = fsat.stat_at(parent, name)
         else:
             entry_stat = os.lstat(parent / name)
     except OSError:
@@ -1178,7 +1179,7 @@ def _assert_no_portable_vault_root_alias(vault_root: Path) -> None:
     # not need it here because canonical() case-normalizes existing paths.
     if _supports_confined_dirfd():
         try:
-            parent_fd = os.open(vault_root.parent, directory_open_flags())
+            parent_fd = fsat.open_dir(vault_root.parent)
         except OSError as exc:
             raise TransactionValidationError(
                 "UNSAFE_VAULT_IDENTITY", f"cannot pin vault parent: {exc}"
@@ -1265,21 +1266,15 @@ def _vault_object_identity(
     if not _supports_confined_dirfd():
         return _path_mode_identity(vault)
     try:
-        descriptor = os.open(
-            vault,
-            os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0),
-        )
+        descriptor = fsat.open_dir(vault)
     except FileNotFoundError:
         parent = vault.parent
-        parent_fd = os.open(
-            parent,
-            os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0),
-        )
+        parent_fd = fsat.open_dir(parent)
         try:
             parent_stat = os.fstat(parent_fd)
             _assert_no_portable_vault_leaf_alias_at(parent_fd, vault.name)
             try:
-                os.stat(vault.name, dir_fd=parent_fd, follow_symlinks=False)
+                fsat.stat_at(parent_fd, vault.name)
             except FileNotFoundError:
                 return {
                     "state": "absent",
@@ -1392,17 +1387,7 @@ def atomic_json(path: Path, value: Any) -> None:
 
 
 def _process_alive(pid: int) -> bool | None:
-    if pid <= 0:
-        return False
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        return True
-    except OSError:
-        return None
-    return True
+    return fsat.process_alive(pid)
 
 
 class _LockIdentityChanged(RuntimeError):
@@ -1417,14 +1402,7 @@ def _require_lock_dirfd_support() -> None:
     to path-based lock operations that can follow a concurrently swapped alias.
     """
 
-    required = (os.open, os.mkdir, os.stat, os.unlink, os.rmdir, os.rename)
-    if (
-        os.name == "nt"
-        or not getattr(os, "O_DIRECTORY", 0)
-        or not getattr(os, "O_NOFOLLOW", 0)
-        or any(function not in os.supports_dir_fd for function in required)
-        or os.stat not in os.supports_follow_symlinks
-    ):
+    if not fsat.supported():
         raise _PlatformConfinementUnavailable(
             errno.ENOTSUP,
             "directory-descriptor lock confinement requires WSL/Linux or supported macOS",
@@ -1432,10 +1410,9 @@ def _require_lock_dirfd_support() -> None:
 
 
 _UNSUPPORTED_PLATFORM_MESSAGE = (
-    "vault writes require directory-descriptor confinement (WSL/Linux or "
-    "supported macOS); on native Windows run this command inside WSL — "
-    "read-only inspection and dry-runs work natively; if WSL itself "
-    "misbehaves, see docs/windows-wsl.md"
+    "vault writes require directory-descriptor confinement (Linux, macOS, "
+    "native Windows or WSL), which this host does not provide; read-only "
+    "inspection and dry-runs still work; see docs/windows-wsl.md"
 )
 
 
@@ -1485,12 +1462,12 @@ def _open_lock_root_fd(vault_root: Path) -> int:
     _require_lock_dirfd_support()
     flags = (
         os.O_RDONLY
-        | os.O_DIRECTORY
-        | os.O_NOFOLLOW
+        | fsat.O_DIRECTORY
+        | fsat.O_NOFOLLOW
         | getattr(os, "O_CLOEXEC", 0)
         | getattr(os, "O_NONBLOCK", 0)
     )
-    return os.open(canonical(vault_root), flags)
+    return fsat.open_dir(canonical(vault_root))
 
 
 def _open_lock_parent_from_root_fd(
@@ -1503,8 +1480,8 @@ def _open_lock_parent_from_root_fd(
 
     flags = (
         os.O_RDONLY
-        | os.O_DIRECTORY
-        | os.O_NOFOLLOW
+        | fsat.O_DIRECTORY
+        | fsat.O_NOFOLLOW
         | getattr(os, "O_CLOEXEC", 0)
         | getattr(os, "O_NONBLOCK", 0)
     )
@@ -1513,14 +1490,14 @@ def _open_lock_parent_from_root_fd(
         for component in components:
             if create:
                 try:
-                    os.mkdir(component, mode=0o700, dir_fd=current)
+                    fsat.mkdir_at(current, component, 0o700)
                     try:
-                        os.fsync(current)
+                        fsat.fsync_dir(current)
                     except OSError:
                         pass
                 except FileExistsError:
                     pass
-            following = os.open(component, flags, dir_fd=current)
+            following = fsat.open_at(current, component, flags)
             os.close(current)
             current = following
         return current
@@ -1532,37 +1509,13 @@ def _open_lock_parent_from_root_fd(
 def _try_vault_advisory_lock(root_fd: int) -> bool:
     """Try to serialize the vault inode across runtime namespace replacement."""
 
-    try:
-        fcntl_module = __import__("fcntl")
-        lock_ex = int(getattr(fcntl_module, "LOCK_EX"))
-        lock_nb = int(getattr(fcntl_module, "LOCK_NB"))
-        flock = getattr(fcntl_module, "flock")
-    except (ImportError, AttributeError, TypeError, ValueError) as exc:
-        raise OSError(
-            errno.ENOTSUP,
-            "process-lifetime vault locking requires fcntl.flock on WSL/Linux or macOS",
-        ) from exc
-    try:
-        flock(root_fd, lock_ex | lock_nb)
-    except OSError as exc:
-        if exc.errno in {errno.EACCES, errno.EAGAIN, errno.EWOULDBLOCK}:
-            return False
-        raise
-    return True
+    return fsat.lock_ex_nb(root_fd)
 
 
 def _release_vault_advisory_lock(root_fd: int) -> None:
     """Release an advisory lock previously acquired on the vault descriptor."""
 
-    try:
-        fcntl_module = __import__("fcntl")
-        flock = getattr(fcntl_module, "flock")
-        lock_un = int(getattr(fcntl_module, "LOCK_UN"))
-        flock(root_fd, lock_un)
-    except (ImportError, AttributeError, OSError, TypeError, ValueError):
-        # Closing the final open file description also releases flock.  The
-        # explicit unlock is best-effort so release cannot leak descriptors.
-        pass
+    fsat.unlock(root_fd)
 
 
 def _open_lock_directory_at(parent_fd: int, name: str) -> int:
@@ -1570,19 +1523,19 @@ def _open_lock_directory_at(parent_fd: int, name: str) -> int:
 
     flags = (
         os.O_RDONLY
-        | os.O_DIRECTORY
-        | os.O_NOFOLLOW
+        | fsat.O_DIRECTORY
+        | fsat.O_NOFOLLOW
         | getattr(os, "O_CLOEXEC", 0)
         | getattr(os, "O_NONBLOCK", 0)
     )
-    return os.open(name, flags, dir_fd=parent_fd)
+    return fsat.open_at(parent_fd, name, flags)
 
 
 def _lock_entry_matches(parent_fd: int, name: str, lock_fd: int) -> bool:
     """Return whether ``name`` still denotes the pinned directory."""
 
     try:
-        entry = os.stat(name, dir_fd=parent_fd, follow_symlinks=False)
+        entry = fsat.stat_at(parent_fd, name)
         pinned = os.fstat(lock_fd)
     except OSError:
         return False
@@ -1599,19 +1552,19 @@ def _read_lock_owner_at(
     """Read a bounded regular owner record through a pinned lock descriptor."""
 
     try:
-        before = os.stat("owner.json", dir_fd=lock_fd, follow_symlinks=False)
+        before = fsat.stat_at(lock_fd, "owner.json")
     except OSError:
         return None
     if not stat.S_ISREG(before.st_mode) or before.st_size > limit:
         return None
     flags = (
         os.O_RDONLY
-        | os.O_NOFOLLOW
+        | fsat.O_NOFOLLOW
         | getattr(os, "O_CLOEXEC", 0)
         | getattr(os, "O_NONBLOCK", 0)
     )
     try:
-        descriptor = os.open("owner.json", flags, dir_fd=lock_fd)
+        descriptor = fsat.open_at(lock_fd, "owner.json", flags)
         opened = os.fstat(descriptor)
         if (
             not stat.S_ISREG(opened.st_mode)
@@ -1640,30 +1593,73 @@ def _write_lock_owner_at(lock_fd: int, value: Mapping[str, Any]) -> None:
         os.O_WRONLY
         | os.O_CREAT
         | os.O_EXCL
-        | os.O_NOFOLLOW
+        | fsat.O_NOFOLLOW
         | getattr(os, "O_CLOEXEC", 0)
     )
-    descriptor = os.open(temporary, flags, 0o600, dir_fd=lock_fd)
+    descriptor = fsat.open_at(lock_fd, temporary, flags, 0o600)
     try:
         with os.fdopen(descriptor, "wb") as handle:
             descriptor = -1
             handle.write(raw)
             handle.flush()
             os.fsync(handle.fileno())
-        os.rename(
-            temporary,
-            "owner.json",
-            src_dir_fd=lock_fd,
-            dst_dir_fd=lock_fd,
-        )
-        os.fsync(lock_fd)
+        fsat.rename_at(lock_fd, temporary, lock_fd, "owner.json")
+        fsat.fsync_dir(lock_fd)
     finally:
         if descriptor >= 0:
             os.close(descriptor)
         try:
-            os.unlink(temporary, dir_fd=lock_fd)
+            fsat.unlink_at(lock_fd, temporary)
         except FileNotFoundError:
             pass
+
+
+def _swap_fd_for_null(fd: int) -> os.stat_result:
+    """Windows: drop the pin on a directory but keep ``fd`` a valid, closable number."""
+
+    pinned = os.fstat(fd)
+    null = os.open(os.devnull, os.O_RDONLY)
+    try:
+        os.dup2(null, fd, inheritable=False)
+    finally:
+        os.close(null)
+    return pinned
+
+
+def _rmdir_pinned_at(parent_fd: int, name: str, fd: int) -> None:
+    """rmdir a pinned directory; a Windows pin blocks deletion, so it is released and re-verified by identity."""
+
+    if os.name == "nt":
+        pinned = _swap_fd_for_null(fd)
+        try:
+            entry = fsat.stat_at(parent_fd, name)
+        except OSError:
+            entry = None
+        if (
+            entry is None
+            or not stat.S_ISDIR(entry.st_mode)
+            or (entry.st_dev, entry.st_ino) != (pinned.st_dev, pinned.st_ino)
+        ):
+            raise _LockIdentityChanged(f"directory identity changed: {name}")
+    fsat.rmdir_at(parent_fd, name)
+
+
+def _rename_pinned_directory(parent_fd: int, src: str, dst: str, fd: int) -> None:
+    """Rename a pinned directory; on Windows re-pin the moved directory onto ``fd`` by identity."""
+
+    if os.name != "nt":
+        fsat.rename_at(parent_fd, src, parent_fd, dst)
+        return
+    pinned = _swap_fd_for_null(fd)
+    fsat.rename_at(parent_fd, src, parent_fd, dst)
+    fresh = _open_lock_directory_at(parent_fd, dst)
+    try:
+        moved = os.fstat(fresh)
+        if (moved.st_dev, moved.st_ino) != (pinned.st_dev, pinned.st_ino):
+            raise _LockIdentityChanged(f"directory identity changed: {dst}")
+        os.dup2(fresh, fd, inheritable=False)
+    finally:
+        os.close(fresh)
 
 
 def _remove_lock_directory_at(parent_fd: int, name: str, lock_fd: int) -> None:
@@ -1672,18 +1668,18 @@ def _remove_lock_directory_at(parent_fd: int, name: str, lock_fd: int) -> None:
     if not _lock_entry_matches(parent_fd, name, lock_fd):
         raise _LockIdentityChanged(f"lock directory identity changed: {name}")
     try:
-        os.unlink("owner.json", dir_fd=lock_fd)
+        fsat.unlink_at(lock_fd, "owner.json")
     except FileNotFoundError:
         pass
     try:
-        os.fsync(lock_fd)
+        fsat.fsync_dir(lock_fd)
     except OSError:
         pass
     if not _lock_entry_matches(parent_fd, name, lock_fd):
         raise _LockIdentityChanged(f"lock directory identity changed: {name}")
-    os.rmdir(name, dir_fd=parent_fd)
+    _rmdir_pinned_at(parent_fd, name, lock_fd)
     try:
-        os.fsync(parent_fd)
+        fsat.fsync_dir(parent_fd)
     except OSError:
         pass
 
@@ -1883,15 +1879,8 @@ class MutationLock:
                 "LOCK_FAILED", f"cannot pin vault root: {exc}"
             ) from exc
         self._root_fd = root_fd
-        root_parent_flags = (
-            os.O_RDONLY
-            | os.O_DIRECTORY
-            | os.O_NOFOLLOW
-            | getattr(os, "O_CLOEXEC", 0)
-            | getattr(os, "O_NONBLOCK", 0)
-        )
         try:
-            self._root_parent_fd = os.open(self.vault_root.parent, root_parent_flags)
+            self._root_parent_fd = fsat.open_dir(self.vault_root.parent)
         except OSError as exc:
             self._close_descriptors()
             raise TransactionError(
@@ -1971,9 +1960,9 @@ class MutationLock:
             self._parent_fd = parent_fd
             while True:
                 try:
-                    os.mkdir("mutation.lock", mode=0o700, dir_fd=parent_fd)
+                    fsat.mkdir_at(parent_fd, "mutation.lock", 0o700)
                     try:
-                        os.fsync(parent_fd)
+                        fsat.fsync_dir(parent_fd)
                     except OSError:
                         pass
                 except FileExistsError:
@@ -1998,12 +1987,18 @@ class MutationLock:
                                         "mutation lock changed during stale-lock inspection",
                                     )
                                 quarantine_name = f"mutation.lock.reaping-{os.getpid()}-{uuid.uuid4().hex}"
-                                os.rename(
-                                    "mutation.lock",
-                                    quarantine_name,
-                                    src_dir_fd=parent_fd,
-                                    dst_dir_fd=parent_fd,
-                                )
+                                try:
+                                    _rename_pinned_directory(
+                                        parent_fd,
+                                        "mutation.lock",
+                                        quarantine_name,
+                                        existing_fd,
+                                    )
+                                except _LockIdentityChanged as exc:
+                                    raise TransactionError(
+                                        "LOCK_OWNERSHIP_LOST",
+                                        "mutation lock changed during stale-lock quarantine",
+                                    ) from exc
                                 if not _lock_entry_matches(
                                     parent_fd, quarantine_name, existing_fd
                                 ):
@@ -2139,21 +2134,21 @@ def _open_runtime_directory_at(
     component = _runtime_component(name)
     if create:
         try:
-            os.mkdir(component, mode=mode, dir_fd=parent_fd)
+            fsat.mkdir_at(parent_fd, component, mode)
             try:
-                os.fsync(parent_fd)
+                fsat.fsync_dir(parent_fd)
             except OSError:
                 pass
         except FileExistsError:
             pass
     flags = (
         os.O_RDONLY
-        | os.O_DIRECTORY
-        | os.O_NOFOLLOW
+        | fsat.O_DIRECTORY
+        | fsat.O_NOFOLLOW
         | getattr(os, "O_CLOEXEC", 0)
         | getattr(os, "O_NONBLOCK", 0)
     )
-    descriptor = os.open(component, flags, dir_fd=parent_fd)
+    descriptor = fsat.open_at(parent_fd, component, flags)
     metadata = os.fstat(descriptor)
     if not stat.S_ISDIR(metadata.st_mode):
         os.close(descriptor)
@@ -2166,7 +2161,7 @@ def _open_runtime_directory_at(
 def _runtime_entry_metadata(directory_fd: int, name: str) -> os.stat_result | None:
     component = _runtime_component(name)
     try:
-        return os.stat(component, dir_fd=directory_fd, follow_symlinks=False)
+        return fsat.stat_at(directory_fd, component)
     except FileNotFoundError:
         return None
 
@@ -2176,14 +2171,13 @@ def _bounded_runtime_names(directory_fd: int, *, limit: int, label: str) -> list
 
     names: list[str] = []
     try:
-        with os.scandir(directory_fd) as entries:
-            for entry in entries:
-                names.append(_runtime_component(entry.name))
-                if len(names) > limit:
-                    raise TransactionRecoveryError(
-                        "CORRUPT_RUNTIME_STATE",
-                        f"{label} exceeds the {limit}-entry safety limit",
-                    )
+        for entry_name in fsat.listdir_fd(directory_fd):
+            names.append(_runtime_component(entry_name))
+            if len(names) > limit:
+                raise TransactionRecoveryError(
+                    "CORRUPT_RUNTIME_STATE",
+                    f"{label} exceeds the {limit}-entry safety limit",
+                )
     except TransactionError:
         raise
     except OSError as exc:
@@ -2209,18 +2203,18 @@ def _read_runtime_bytes_at(
     component = _runtime_component(name)
     descriptor = -1
     try:
-        before = os.stat(component, dir_fd=directory_fd, follow_symlinks=False)
+        before = fsat.stat_at(directory_fd, component)
         if not stat.S_ISREG(before.st_mode) or before.st_size > limit:
             raise error_type(
                 "CORRUPT_RUNTIME_STATE", f"{label} is not a bounded regular file"
             )
-        descriptor = os.open(
+        descriptor = fsat.open_at(
+            directory_fd,
             component,
             os.O_RDONLY
-            | os.O_NOFOLLOW
+            | fsat.O_NOFOLLOW
             | getattr(os, "O_CLOEXEC", 0)
             | getattr(os, "O_NONBLOCK", 0),
-            dir_fd=directory_fd,
         )
         opened = os.fstat(descriptor)
         if (
@@ -2319,34 +2313,29 @@ def _atomic_runtime_write_at(
     temporary = f".{component}.txn-{os.getpid()}-{uuid.uuid4().hex}"
     descriptor = -1
     try:
-        descriptor = os.open(
+        descriptor = fsat.open_at(
+            directory_fd,
             temporary,
             os.O_WRONLY
             | os.O_CREAT
             | os.O_EXCL
-            | os.O_NOFOLLOW
+            | fsat.O_NOFOLLOW
             | getattr(os, "O_CLOEXEC", 0),
             mode,
-            dir_fd=directory_fd,
         )
         with os.fdopen(descriptor, "wb") as handle:
             descriptor = -1
             handle.write(data)
             handle.flush()
             os.fsync(handle.fileno())
-            os.fchmod(handle.fileno(), mode)
-        os.rename(
-            temporary,
-            component,
-            src_dir_fd=directory_fd,
-            dst_dir_fd=directory_fd,
-        )
-        os.fsync(directory_fd)
+            fsat.fchmod(handle.fileno(), mode)
+        fsat.rename_at(directory_fd, temporary, directory_fd, component)
+        fsat.fsync_dir(directory_fd)
     finally:
         if descriptor >= 0:
             os.close(descriptor)
         try:
-            os.unlink(temporary, dir_fd=directory_fd)
+            fsat.unlink_at(directory_fd, temporary)
         except FileNotFoundError:
             pass
 
@@ -2406,7 +2395,7 @@ def _remove_pinned_runtime_tree_at(
         os.close(scan_fd)
     remaining[0] -= len(child_names)
     for child_name in child_names:
-        metadata = os.stat(child_name, dir_fd=directory_fd, follow_symlinks=False)
+        metadata = fsat.stat_at(directory_fd, child_name)
         if stat.S_ISDIR(metadata.st_mode):
             if depth >= MAX_TRANSACTION_RUNTIME_TREE_DEPTH:
                 raise TransactionRecoveryError(
@@ -2431,14 +2420,14 @@ def _remove_pinned_runtime_tree_at(
             finally:
                 os.close(child_fd)
         else:
-            os.unlink(child_name, dir_fd=directory_fd)
+            fsat.unlink_at(directory_fd, child_name)
     if not _lock_entry_matches(parent_fd, component, directory_fd):
         raise _LockIdentityChanged(
             f"runtime directory changed before removal: {component}"
         )
-    os.rmdir(component, dir_fd=parent_fd)
+    _rmdir_pinned_at(parent_fd, component, directory_fd)
     try:
-        os.fsync(parent_fd)
+        fsat.fsync_dir(parent_fd)
     except OSError:
         pass
 
@@ -2598,6 +2587,9 @@ class _RuntimeStore:
             raise TransactionRecoveryError(
                 "CORRUPT_RUNTIME_STATE", "transactions runtime is unavailable"
             )
+        if operation.backups_fd is not None:
+            os.close(operation.backups_fd)
+            operation.backups_fd = None
         try:
             _remove_pinned_runtime_tree_at(
                 self.transactions_fd, operation.name, operation.fd
@@ -3230,7 +3222,7 @@ def _validate_native_artifact(
                 parent_descriptor, leaf = _open_parent_directory(
                     vault_root, normalized, create=False, root_fd=root_fd, meta_fd=meta_fd,
                 )
-                descriptor = os.open(leaf, reference_flags, dir_fd=parent_descriptor)
+                descriptor = fsat.open_at(parent_descriptor, leaf, reference_flags)
             else:
                 descriptor = os.open(path, reference_flags)
             metadata = os.fstat(descriptor)
@@ -4339,7 +4331,9 @@ def _validate_completed_result(
             raise error_type(
                 code, f"cannot verify completed path {relative}: {exc}"
             ) from exc
-        if actual_hash != expected_hash or actual_mode != expected_mode:
+        if actual_hash != expected_hash or actual_mode != _portable_file_mode(
+            expected_mode
+        ):
             raise error_type(
                 code,
                 f"completed operation path drifted: {relative} "
@@ -4706,7 +4700,7 @@ def inspect_bundle(
     root_fd: int | None = None
     if vault.exists() and _supports_confined_dirfd():
         try:
-            root_fd = os.open(vault, directory_open_flags())
+            root_fd = fsat.open_dir(vault)
         except OSError as exc:
             raise TransactionValidationError(
                 "UNSAFE_VAULT_IDENTITY", f"cannot pin vault directory: {exc}"

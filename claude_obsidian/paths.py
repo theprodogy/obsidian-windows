@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Mapping
 
+from . import fsat
 from .json_utils import parse_finite_json_float
 
 WORKSPACE_CONFIG = ".claude-obsidian.json"
@@ -52,24 +53,15 @@ def _portable_path_key(path: Path) -> str:
 
 
 def supports_confined_dirfd() -> bool:
-    """True when the POSIX openat-style confinement primitives all exist.
+    """True when fd-relative confinement primitives exist (``fsat`` shim).
 
-    Native Windows lacks ``O_DIRECTORY`` and dir_fd support entirely; callers
-    take a path-based degraded branch there instead of descriptor confinement.
+    POSIX needs the ``dir_fd`` os functions; native Windows uses NT handles.
     ``legacy_lock._supports_confined_runtime`` and the inline probe in
     ``hook_adapter`` intentionally require different primitive sets and stay
     separate.
     """
 
-    return (
-        os.name != "nt"
-        and hasattr(os, "O_DIRECTORY")
-        and os.open in os.supports_dir_fd
-        and os.mkdir in os.supports_dir_fd
-        and os.rename in os.supports_dir_fd
-        and os.stat in os.supports_dir_fd
-        and os.unlink in os.supports_dir_fd
-    )
+    return fsat.supported()
 
 
 def directory_open_flags() -> int:
@@ -77,9 +69,9 @@ def directory_open_flags() -> int:
 
     return (
         os.O_RDONLY
-        | getattr(os, "O_DIRECTORY", 0)
+        | fsat.O_DIRECTORY
         | getattr(os, "O_CLOEXEC", 0)
-        | getattr(os, "O_NOFOLLOW", 0)
+        | fsat.O_NOFOLLOW
     )
 
 
@@ -97,7 +89,7 @@ def read_open_flags() -> int:
     return (
         os.O_RDONLY
         | getattr(os, "O_CLOEXEC", 0)
-        | getattr(os, "O_NOFOLLOW", 0)
+        | fsat.O_NOFOLLOW
         | getattr(os, "O_NONBLOCK", 0)
         | getattr(os, "O_BINARY", 0)
     )

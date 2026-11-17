@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 from typing import Mapping, TextIO
 
+from . import fsat
 from .json_utils import strict_json_loads
 from .paths import (
     WORKSPACE_CONFIG,
@@ -64,9 +65,9 @@ def _bounded_regular_bytes(root: Path, path: Path, limit: int) -> bytes | None:
 
     directory_flags = (
         os.O_RDONLY
-        | getattr(os, "O_DIRECTORY", 0)
+        | fsat.O_DIRECTORY
         | getattr(os, "O_CLOEXEC", 0)
-        | getattr(os, "O_NOFOLLOW", 0)
+        | fsat.O_NOFOLLOW
     )
     # O_BINARY keeps the Windows CRT from CRLF-translating reads at the
     # descriptor layer, which would corrupt content passed to hashing callers.
@@ -75,23 +76,21 @@ def _bounded_regular_bytes(root: Path, path: Path, limit: int) -> bytes | None:
     file_flags = (
         os.O_RDONLY
         | getattr(os, "O_CLOEXEC", 0)
-        | getattr(os, "O_NOFOLLOW", 0)
+        | fsat.O_NOFOLLOW
         | getattr(os, "O_NONBLOCK", 0)
         | getattr(os, "O_BINARY", 0)
     )
-    if os.name != "nt" and os.open in os.supports_dir_fd and hasattr(os, "O_DIRECTORY"):
+    if fsat.supported():
         try:
-            parent_descriptor = os.open(root, directory_flags)
+            parent_descriptor = fsat.open_dir(root)
         except OSError:
             return None
         try:
             for part in relative.parts[:-1]:
-                child = os.open(part, directory_flags, dir_fd=parent_descriptor)
+                child = fsat.open_at(parent_descriptor, part, directory_flags)
                 os.close(parent_descriptor)
                 parent_descriptor = child
-            descriptor = os.open(
-                relative.parts[-1], file_flags, dir_fd=parent_descriptor
-            )
+            descriptor = fsat.open_at(parent_descriptor, relative.parts[-1], file_flags)
         except OSError:
             os.close(parent_descriptor)
             return None

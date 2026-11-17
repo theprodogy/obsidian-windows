@@ -16,6 +16,7 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
+from . import fsat
 from .json_utils import parse_finite_json_float
 from .lint_engine import lint_vault
 from .paths import canonical, directory_open_flags, read_open_flags
@@ -72,7 +73,15 @@ def _descriptor_root_path(root: Path) -> tuple[Path, tuple[int, ...]]:
     descriptor = _active_root_fd(root)
     if descriptor is None:
         return root, ()
-    if sys.platform.startswith("linux"):
+    if os.name == "nt":
+        try:
+            candidate = Path(fsat.fd_path(descriptor))
+        except OSError as exc:
+            raise CheckpointError(
+                "CHECKPOINT_FD_CWD_UNSUPPORTED",
+                f"cannot resolve the pinned vault descriptor for Git: {exc}",
+            ) from exc
+    elif sys.platform.startswith("linux"):
         candidate = Path(f"/proc/self/fd/{descriptor}")
     elif sys.platform == "darwin":
         try:
@@ -102,8 +111,7 @@ def _descriptor_root_path(root: Path) -> tuple[Path, tuple[int, ...]]:
     probe: int | None = None
     try:
         opened = os.fstat(descriptor)
-        flags = os.O_RDONLY | getattr(os, "O_CLOEXEC", 0)
-        probe = os.open(candidate, flags)
+        probe = fsat.open_dir(candidate)
         alias = os.fstat(probe)
     except OSError as exc:
         raise CheckpointError(
@@ -121,7 +129,7 @@ def _descriptor_root_path(root: Path) -> tuple[Path, tuple[int, ...]]:
             "CHECKPOINT_FD_CWD_UNSUPPORTED",
             "descriptor Git cwd does not identify the selected vault",
         )
-    return candidate, (descriptor,)
+    return candidate, (descriptor,) if os.name != "nt" else ()
 
 
 def _same_as_active_root(root: Path, candidate: Path) -> bool:
@@ -183,7 +191,7 @@ def _git(
     completed = subprocess.run(
         ["git", *arguments],
         cwd=cwd,
-        pass_fds=pass_fds,
+        **({"pass_fds": pass_fds} if pass_fds else {}),
         env=_git_environment(environment),
         input=input_text,
         capture_output=True,
@@ -211,7 +219,7 @@ def _git_bytes(
     completed = subprocess.run(
         ["git", *arguments],
         cwd=cwd,
-        pass_fds=pass_fds,
+        **({"pass_fds": pass_fds} if pass_fds else {}),
         env=_git_environment(environment),
         stdin=subprocess.DEVNULL if input_bytes is None else None,
         input=input_bytes,
@@ -373,15 +381,9 @@ class _CheckpointStore:
     def _assert_current(self) -> None:
         self.lock.assert_runtime_namespace_current()
         try:
-            transactions = os.stat(
-                "transactions", dir_fd=self.meta_fd, follow_symlinks=False
-            )
+            transactions = fsat.stat_at(self.meta_fd, "transactions")
             pinned_transactions = os.fstat(self.transactions_fd)
-            operation = os.stat(
-                self.operation_id,
-                dir_fd=self.transactions_fd,
-                follow_symlinks=False,
-            )
+            operation = fsat.stat_at(self.transactions_fd, self.operation_id)
             pinned_operation = os.fstat(self.operation_fd)
         except OSError as exc:
             raise CheckpointError(
@@ -403,7 +405,7 @@ class _CheckpointStore:
 
     def exists(self, name: str) -> bool:
         try:
-            metadata = os.stat(name, dir_fd=self.operation_fd, follow_symlinks=False)
+            metadata = fsat.stat_at(self.operation_fd, name)
         except FileNotFoundError:
             return False
         except OSError as exc:
@@ -419,13 +421,13 @@ class _CheckpointStore:
     def read(self, name: str, *, label: str, code: str) -> dict[str, Any]:
         descriptor = -1
         try:
-            before = os.stat(name, dir_fd=self.operation_fd, follow_symlinks=False)
+            before = fsat.stat_at(self.operation_fd, name)
             if (
                 not stat.S_ISREG(before.st_mode)
                 or before.st_size > MAX_CHECKPOINT_STATE_BYTES
             ):
                 raise CheckpointError(code, f"{label} is not a bounded regular file")
-            descriptor = os.open(name, read_open_flags(), dir_fd=self.operation_fd)
+            descriptor = fsat.open_at(self.operation_fd, name, read_open_flags())
             opened = os.fstat(descriptor)
             if (opened.st_dev, opened.st_ino) != (before.st_dev, before.st_ino):
                 raise CheckpointError(code, f"{label} changed before it could be read")
@@ -466,79 +468,68 @@ class _CheckpointStore:
         temporary = f".{name}.tmp-{os.getpid()}-{uuid.uuid4().hex}"
         descriptor = -1
         try:
-            descriptor = os.open(
+            descriptor = fsat.open_at(
+                self.operation_fd,
                 temporary,
                 os.O_WRONLY
                 | os.O_CREAT
                 | os.O_EXCL
-                | os.O_NOFOLLOW
+                | fsat.O_NOFOLLOW
+                | getattr(os, "O_BINARY", 0)
                 | getattr(os, "O_CLOEXEC", 0),
                 0o600,
-                dir_fd=self.operation_fd,
             )
             with os.fdopen(descriptor, "wb") as handle:
                 descriptor = -1
                 handle.write(raw)
                 handle.flush()
                 os.fsync(handle.fileno())
-            os.replace(
-                temporary,
-                name,
-                src_dir_fd=self.operation_fd,
-                dst_dir_fd=self.operation_fd,
-            )
-            os.fsync(self.operation_fd)
+            fsat.rename_at(self.operation_fd, temporary, self.operation_fd, name)
+            fsat.fsync_dir(self.operation_fd)
             self._assert_current()
         finally:
             if descriptor >= 0:
                 os.close(descriptor)
             try:
-                os.unlink(temporary, dir_fd=self.operation_fd)
+                fsat.unlink_at(self.operation_fd, temporary)
             except FileNotFoundError:
                 pass
 
     def unlink(self, name: str) -> None:
         self._assert_current()
         try:
-            os.unlink(name, dir_fd=self.operation_fd)
+            fsat.unlink_at(self.operation_fd, name)
         except FileNotFoundError:
             return
         except OSError as exc:
             raise CheckpointError(
                 "CORRUPT_CHECKPOINT", f"cannot remove {name}: {exc}"
             ) from exc
-        os.fsync(self.operation_fd)
+        fsat.fsync_dir(self.operation_fd)
         self._assert_current()
 
     def other_pending(self) -> str | None:
         try:
-            with os.scandir(self.transactions_fd) as entries:
-                names: list[str] = []
-                for entry in entries:
-                    names.append(entry.name)
-                    if len(names) > MAX_CHECKPOINT_RUNTIME_ENTRIES:
-                        raise CheckpointError(
-                            "CORRUPT_CHECKPOINT",
-                            "transaction runtime exceeds the checkpoint entry limit",
-                        )
-                names.sort()
+            names = fsat.listdir_fd(self.transactions_fd)
+            if len(names) > MAX_CHECKPOINT_RUNTIME_ENTRIES:
+                raise CheckpointError(
+                    "CORRUPT_CHECKPOINT",
+                    "transaction runtime exceeds the checkpoint entry limit",
+                )
+            names.sort()
         except OSError as exc:
             raise CheckpointError(
                 "CORRUPT_CHECKPOINT", f"cannot list transaction state: {exc}"
             ) from exc
-        flags = directory_open_flags()
+        flags = directory_open_flags() | fsat.O_DIRECTORY | fsat.O_NOFOLLOW
         for name in names:
             if name == self.operation_id:
                 continue
             descriptor = -1
             try:
-                descriptor = os.open(name, flags, dir_fd=self.transactions_fd)
+                descriptor = fsat.open_at(self.transactions_fd, name, flags)
                 try:
-                    pending = os.stat(
-                        PENDING_NAME,
-                        dir_fd=descriptor,
-                        follow_symlinks=False,
-                    )
+                    pending = fsat.stat_at(descriptor, PENDING_NAME)
                 except FileNotFoundError:
                     continue
                 if not stat.S_ISREG(pending.st_mode):

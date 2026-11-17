@@ -56,6 +56,7 @@ from typing import Any, Iterable, Mapping, Sequence, cast
 if __package__ in {None, ""}:
     sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from claude_obsidian import fsat
 from claude_obsidian.gitignore import GitignoreMatcher
 from claude_obsidian.json_utils import strict_json_loads
 from claude_obsidian.visible_paths import is_visible_path
@@ -811,9 +812,7 @@ def _link_queries(
 
 
 def _supports_hidden_checks() -> bool:
-    return (os.open in os.supports_dir_fd and os.stat in os.supports_dir_fd
-            and os.stat in os.supports_follow_symlinks
-            and hasattr(os, "O_NOFOLLOW") and hasattr(os, "O_DIRECTORY"))
+    return fsat.supported()
 
 
 def _hidden_target_queries(
@@ -852,14 +851,14 @@ def _confined_hidden_target(
         for variant in variants:
             descriptor = -1
             try:
-                descriptor = os.open(root, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW)
+                descriptor = fsat.open_dir(root)
                 variant_parts = PurePosixPath(variant).parts
                 for part in variant_parts[:-1]:
-                    child = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW,
-                                    dir_fd=descriptor)
+                    child = fsat.open_at(descriptor, part,
+                                         os.O_RDONLY | fsat.O_DIRECTORY | fsat.O_NOFOLLOW)
                     os.close(descriptor)
                     descriptor = child
-                metadata = os.stat(variant_parts[-1], dir_fd=descriptor, follow_symlinks=False)
+                metadata = fsat.stat_at(descriptor, variant_parts[-1])
                 if stat.S_ISREG(metadata.st_mode):
                     return variant
             except OSError:

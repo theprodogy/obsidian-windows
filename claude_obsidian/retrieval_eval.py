@@ -17,8 +17,9 @@ import unicodedata
 from pathlib import Path, PurePosixPath
 from typing import Any, Iterable, Sequence
 
+from . import fsat
 from .json_utils import strict_json_loads
-from .paths import is_name_surrogate, linked_path_hint, supports_confined_dirfd
+from .paths import is_name_surrogate, linked_path_hint
 
 
 QUERY_SCHEMA = "claude-obsidian.retrieval-queries.v1"
@@ -49,16 +50,16 @@ def _read_regular(path: Path, *, limit: int, metadata_only: bool = False) -> byt
     path = Path(os.path.abspath(path))
     directory_fd = -1
     descriptor = -1
-    directory_flags = os.O_RDONLY | getattr(os, "O_DIRECTORY", 0) | getattr(os, "O_NOFOLLOW", 0)
-    file_flags = os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0) | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_BINARY", 0)
+    directory_flags = os.O_RDONLY | fsat.O_DIRECTORY | fsat.O_NOFOLLOW
+    file_flags = os.O_RDONLY | fsat.O_NOFOLLOW | getattr(os, "O_NONBLOCK", 0) | getattr(os, "O_BINARY", 0)
     try:
-        if supports_confined_dirfd():
-            directory_fd = os.open(path.anchor, directory_flags)
+        if fsat.supported():
+            directory_fd = fsat.open_dir(path.anchor)
             for part in path.parts[1:-1]:
-                child = os.open(part, directory_flags, dir_fd=directory_fd)
+                child = fsat.open_at(directory_fd, part, directory_flags)
                 os.close(directory_fd)
                 directory_fd = child
-            descriptor = os.open(path.name, file_flags, dir_fd=directory_fd)
+            descriptor = fsat.open_at(directory_fd, path.name, file_flags)
         else:
             cursor = Path(path.anchor)
             for part in path.parts[1:]:
