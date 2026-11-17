@@ -112,7 +112,7 @@ Use `--host opencode`, `--host gemini` or `--host zcode` the same way. Cursor an
 <summary><b>Windows</b></summary>
 <br />
 
-On Windows, use WSL for anything that writes to the vault. Native Windows can inspect and preview, and stops with a clear error instead of writing. The [Windows and WSL guide](docs/windows-wsl.md) has the details.
+claude-obsidian runs natively on Windows with full vault writes, capture queue, and checkpoints. Install Git for Windows (Git Bash runs the hooks) and Python 3.11+; setup helpers run as `python scripts/<name>.py`. WSL is optional. The [Windows and WSL guide](docs/windows-wsl.md) has the details.
 
 </details>
 

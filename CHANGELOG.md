@@ -7,6 +7,21 @@ implementation record for older releases.
 
 ## [Unreleased]
 
+### Added
+
+- Native Windows support: vault writes, locks, the capture queue, and
+  checkpoints run without WSL through NT handle-relative opens
+  (`claude_obsidian/fsat.py`). Setup helpers have Python ports run as
+  `python scripts/<name>.py`; the `.sh` files are thin wrappers.
+- CI runs the full hermetic suite on `windows-latest` for Python 3.11-3.14.
+
+### Changed
+
+- `hooks/hooks.json` uses the shell command form, preferring `python3` and
+  falling back to `python`; Windows hooks need Git Bash.
+- `docs/windows-wsl.md` now documents native Windows as full-capability and
+  WSL as optional.
+
 ## [3.0.1] - 2026-10-21
 
 Restores the Claude plugin name `claude-obsidian`, so commands are

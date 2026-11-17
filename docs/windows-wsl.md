@@ -1,68 +1,66 @@
 # Windows and WSL guide
 
-claude-obsidian supports native Windows as a read-only platform and WSL as the
-full-capability platform. This guide covers what works where, why the boundary
-exists, and how to unstick WSL when it misbehaves.
+claude-obsidian runs natively on Windows with the same capabilities as Linux
+and macOS. WSL is optional. This guide covers what works where, how native
+Windows confines vault writes, and how to unstick WSL if you choose it.
 
 ## Platform support
 
-| Capability | WSL / Linux / macOS | Native Windows (incl. Git Bash) |
+| Capability | Linux / macOS / WSL | Native Windows (Git Bash for hooks and `.sh` wrappers) |
 |---|---|---|
 | Inspection, dry-run previews, retrieval | Yes | Yes |
-| Vault writes (`transaction apply`, `init`, `adopt`, `migrate`, `capture apply`, `mode set`) | Yes | No: refused with `UNSUPPORTED_PLATFORM` |
-| Capture queue commands (including read-only `capture queue list`) | Yes | No: currently refused; tracked in [#151](https://github.com/AgriciDaniel/claude-obsidian/issues/151) |
-| Git checkpoints (`checkpoint`) | Linux and macOS only | No |
-| Bash setup scripts and shell test suites | Yes | No (POSIX-only) |
-| Claude Code hooks (`SessionStart`, `Stop`) | Yes (works out of the box) | Partial: requires `python3` on `PATH`; see [below](#claude-code-hooks-and-python3-on-windows) |
+| Vault writes (`transaction apply`, `init`, `adopt`, `migrate`, `capture apply`, `mode set`) | Yes | Yes |
+| Capture queue commands | Yes | Yes |
+| Git checkpoints (`checkpoint`) | Yes | Yes |
+| Setup and helper scripts | `bash scripts/<name>.sh` | `python scripts/<name>.py` (`detect-transport`, `allocate-address`, `setup-retrieve`, `setup-multi-agent`); the `.sh` files are thin wrappers that need Git Bash |
+| Claude Code hooks (`SessionStart`, `Stop`) | Yes (works out of the box) | Yes, with Git Bash and Python on `PATH`; see [below](#claude-code-hooks-and-python3-on-windows) |
+
+Native Windows needs Python 3.11 or newer. On Python older than 3.13 the
+file-mode call used for private files is a no-op on Windows; NTFS ACLs apply
+instead.
+
+## How Windows confines writes
+
+Linux and macOS pin directories with POSIX directory descriptors. Native
+Windows gets the same guarantees from `claude_obsidian/fsat.py`, which opens
+every path component relative to an already-open directory handle through the
+NT API, so a concurrently swapped folder cannot redirect a write. Pinned
+directories are held open without `FILE_SHARE_DELETE`, which makes the OS
+refuse to rename or delete them while an operation runs. Symlinks, junctions,
+and other name-surrogate reparse points are never followed. The vault mutation
+lock is an advisory lock built on a named semaphore, shared by every process
+touching the same vault.
 
 Vaults must live on a filesystem with stable file identity: NTFS is fine, but
 FAT/exFAT volumes (typical USB sticks) and some network shares are refused with
-`UNSAFE_VAULT_IDENTITY`: move the vault to NTFS or work inside WSL.
+`UNSAFE_VAULT_IDENTITY`: move the vault to NTFS (or work inside WSL).
 
 ## Claude Code hooks and python3 on Windows
 
-`hooks/hooks.json` spawns each hook using the [Claude Code exec-form command
-hook](https://code.claude.com/docs/en/hooks): `"command": "python3"` with an
-`args` array. Claude Code resolves `python3` as an executable on `PATH` and
-spawns it directly; there is no shell, so no `.bat` shim, alias function, or
-shell profile is consulted.
+`hooks/hooks.json` uses the shell form of a Claude Code command hook: a short
+`sh` snippet picks `python3` if it runs, else `python`, and then launches
+`scripts/claude-obsidian.py` from `${CLAUDE_PLUGIN_ROOT}`. On Windows, Claude
+Code runs hook commands through Git Bash when it is installed. If it falls
+back to PowerShell, the `sh` syntax fails to parse and the hook never runs, so
+install [Git for Windows](https://git-scm.com/download/win).
 
-WSL and most Linux and macOS Python installs provide a `python3` on `PATH` by
-default, so hooks work there without extra setup. Native Windows commonly does
-not:
+Python resolution:
 
-- python.org installer: installs `python.exe`, not `python3.exe`. Either add
-  a `python3.exe` shim earlier on `PATH` than the interpreter, install a
-  distribution that provides `python3.exe`, or run Claude Code from WSL so
-  hooks resolve the WSL `python3`.
-- Microsoft Store Python: the `python3` app execution alias can be a stub
-  that opens the Store instead of running Python. Disable the `python3` app
-  execution alias in Windows Settings, then install Python from python.org
-  or WSL and confirm the real interpreter is on `PATH`.
+- python.org installer: provides `python.exe` (and the `py` launcher), not
+  `python3.exe`. The snippet falls back to `python`, so no shim is needed.
+- Microsoft Store Python: a `python3` app execution alias can be a stub that
+  opens the Store. The snippet only accepts `python3` if `python3 -c ''`
+  succeeds, otherwise it uses `python`; disable the stub alias in Windows
+  Settings if neither runs.
 
-When `python3` cannot be resolved, Claude Code fails to spawn the hook
-process, so claude-obsidian's own code never runs and cannot emit a
-diagnostic. SessionStart context and Stop recovery warnings are both silently
-absent in that case; the rest of claude-obsidian (skills and the CLI) is
-unaffected, since only the optional hook path depends on `python3`.
-
-## Why writes require WSL
-
-Mutation safety is bound to POSIX directory descriptors: the vault root and
-every runtime directory stay pinned for the whole write, so a concurrently
-swapped symlink or replaced folder fails closed instead of redirecting the
-write (see the [compound vault guide](compound-vault-guide.md)). Native Windows
-cannot provide those primitives, so writes are refused up front rather than
-silently running with weaker guarantees.
-
-A degraded native-Windows write mode (default-off, behind an explicit
-reduced-guarantees flag) is under consideration in
-[#151](https://github.com/AgriciDaniel/claude-obsidian/issues/151). If WSL is a
-blocker for you, that issue is the place to weigh in.
+When no usable Python or no Git Bash is found, the hook process fails before
+claude-obsidian's own code runs, so no diagnostic can be emitted. SessionStart
+context and Stop recovery warnings are silently absent; skills and the CLI are
+unaffected.
 
 ## WSL troubleshooting
 
-WSL being "installed" does not always mean WSL is working. Symptoms and checks,
+WSL is optional on current releases. WSL being "installed" does not always mean WSL is working. Symptoms and checks,
 roughly in the order worth trying:
 
 | Symptom | Check |
@@ -92,9 +90,12 @@ WSL troubleshooting checklist:
 
 ## Working across the boundary
 
-The supported native-Windows workflow is: inspect and review natively, mutate
-inside WSL. Because approval hashes bind to the environment that produced
-them, do the reviewed dry-run in the same environment that will run the apply.
-Keeping the vault inside the WSL filesystem (rather than on a mounted Windows
-drive) avoids both the identity caveats above and cross-boundary performance
-overhead.
+If you use both native Windows and WSL on the same vault, do the reviewed
+dry-run in the environment that will run the apply: approval hashes bind to
+the environment that produced them. Keeping the vault inside the WSL
+filesystem (rather than on a mounted Windows drive) avoids the identity
+caveats above and cross-boundary performance overhead.
+
+Known limit: when `setup-multi-agent` cannot create symlinks on Windows and
+falls back to copies, a later `--check` reports `CONFLICT` for those copies.
+Enable Developer Mode (or run elevated) to allow symlinks.
