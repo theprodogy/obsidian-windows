@@ -7,6 +7,7 @@ import json
 import io
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -48,8 +49,9 @@ def test_hook_schema_uses_supported_session_start_shape() -> None:
     assert session[0]["matcher"] == "startup|resume|clear|compact|fork"
     for handler in session[0]["hooks"]:
         assert handler["type"] in {"command", "mcp_tool"}
-        assert handler["command"] == "python3"
-        assert handler["args"][0].startswith("${CLAUDE_PLUGIN_ROOT}/")
+        assert "args" not in handler
+        assert handler["command"].startswith("p=python3; python3 -c '' >/dev/null 2>&1 || p=python; ")
+        assert '"$p" "${CLAUDE_PLUGIN_ROOT}"/scripts/claude-obsidian.py hook ' in handler["command"]
     assert hooks["Stop"][0]["hooks"][0]["type"] == "command"
     assert "matcher" not in hooks["Stop"][0]
 
@@ -59,13 +61,16 @@ def test_fork_dispatch_keeps_session_context_explicit_and_read_only() -> None:
     matches = [group for group in config["hooks"]["SessionStart"] if re.fullmatch(group.get("matcher", ".*"), "fork")]
     assert len(matches) == 1, "fork must dispatch the current SessionStart handler"
     handler = matches[0]["hooks"][0]
-    command = [handler["command"], *[arg.replace("${CLAUDE_PLUGIN_ROOT}", str(ROOT)) for arg in handler["args"]]]
+    bash = shutil.which("bash")
+    assert bash, "hook commands are sh syntax and need bash"
+    command = [bash, "-c", handler["command"]]
     with tempfile.TemporaryDirectory() as directory:
         vault = make_vault(Path(directory) / "vault", "FORK_CONTEXT_SENTINEL\n")
         before = {p.relative_to(vault).as_posix(): p.read_bytes() for p in vault.rglob("*") if p.is_file()}
         for enabled in (False, True):
             env = {key: value for key, value in os.environ.items() if not key.startswith("CLAUDE_OBSIDIAN_")}
             env["PYTHONDONTWRITEBYTECODE"] = "1"
+            env["CLAUDE_PLUGIN_ROOT"] = str(ROOT)
             env["CLAUDE_OBSIDIAN_VAULT"] = str(vault)
             if enabled:
                 env["CLAUDE_OBSIDIAN_SESSION_CONTEXT"] = "1"
