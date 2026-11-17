@@ -69,4 +69,4 @@ $APPLY && arguments+=(--apply)
 if $CHECK; then
   arguments+=(--check)
 fi
-exec python3 "$CLI" "${arguments[@]}"
+exec "${PYTHON:-python3}" "$CLI" "${arguments[@]}"

@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import os
 import subprocess
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -12,6 +13,11 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = ROOT / "scripts/setup-multi-agent.sh"
+LAUNCH = [sys.executable, str(ROOT / "scripts/setup-multi-agent.py")] if os.name == "nt" else ["bash", str(SCRIPT)]
+
+
+def is_link(path: Path) -> bool:
+    return path.is_symlink() or (os.name == "nt" and os.lstat(path).st_reparse_tag != 0)
 
 
 class SetupMultiAgentTests(unittest.TestCase):
@@ -19,7 +25,7 @@ class SetupMultiAgentTests(unittest.TestCase):
         environment = dict(os.environ)
         environment["HOME"] = str(home)
         return subprocess.run(
-            ["bash", str(SCRIPT), *arguments],
+            [*LAUNCH, *arguments],
             cwd=ROOT,
             env=environment,
             text=True,
@@ -57,7 +63,7 @@ class SetupMultiAgentTests(unittest.TestCase):
                 self.assertEqual(expected, discovered, host)
                 for skill_name in expected:
                     link = skill_root / skill_name
-                    self.assertTrue(link.is_symlink(), (host, skill_name))
+                    self.assertTrue(is_link(link), (host, skill_name))
                     self.assertEqual(ROOT / "skills" / skill_name, link.resolve())
             self.assertFalse((home / ".opencode").exists())
             second = self.invoke(home, "--apply")
@@ -92,7 +98,7 @@ class SetupMultiAgentTests(unittest.TestCase):
             self.assertEqual(expected, discovered)
             for skill_name in expected:
                 link = skill_root / skill_name
-                self.assertTrue(link.is_symlink(), skill_name)
+                self.assertTrue(is_link(link), skill_name)
                 self.assertEqual(ROOT / "skills" / skill_name, link.resolve())
             # ZCode is opt-in: the default hosts are not installed alongside it.
             self.assertFalse((home / ".agents/skills").exists())
@@ -137,7 +143,7 @@ class SetupMultiAgentTests(unittest.TestCase):
                     len(list(skill_root.glob("*/SKILL.md"))),
                     host,
                 )
-                self.assertTrue((skill_root / "wiki").is_symlink())
+                self.assertTrue(is_link(skill_root / "wiki"))
 
     def test_workspace_parent_symlinks_cannot_redirect_apply(self) -> None:
         for symlink_component in (".cursor", ".cursor/skills"):

@@ -9,6 +9,7 @@ import os
 import shutil
 import stat
 import subprocess
+import sys
 import tempfile
 import time
 import unittest
@@ -21,6 +22,8 @@ REQUIRED_TOOLS = ("python3", "sed", "cat", "chmod", "mv", "mkdir", "mktemp", "rm
 
 
 def _tool_path(directory: Path) -> str:
+    if os.name == "nt":
+        return str(directory)
     for name in REQUIRED_TOOLS:
         source = shutil.which(name)
         if source is None:
@@ -30,6 +33,8 @@ def _tool_path(directory: Path) -> str:
 
 
 def _fake_obsidian(directory: Path, *, legacy: bool = False) -> Path:
+    if os.name == "nt":
+        raise unittest.SkipTest("fake obsidian binaries are POSIX shell scripts")
     name = "obsidian-cli" if legacy else "obsidian"
     binary = directory / name
     binary.write_text(
@@ -75,7 +80,9 @@ def _run(
     if extra_env:
         env.update(extra_env)
     return subprocess.run(
-        ["/bin/bash", str(SCRIPT), *arguments],
+        [sys.executable, str(SCRIPT.with_suffix(".py")), *arguments]
+        if os.name == "nt"
+        else ["/bin/bash", str(SCRIPT), *arguments],
         cwd=vault,
         env=env,
         capture_output=True,
@@ -103,6 +110,9 @@ class DetectTransportTests(unittest.TestCase):
 
         sys.path.insert(0, str(ROOT))
         from claude_obsidian import transport_probe
+
+        if os.name == "nt":
+            raise unittest.SkipTest("fake binary is a POSIX shell script")
 
         with tempfile.TemporaryDirectory() as directory:
             base = Path(directory)

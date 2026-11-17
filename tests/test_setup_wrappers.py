@@ -49,6 +49,7 @@ class SetupWrapperTests(unittest.TestCase):
         )
         fake_python.chmod(0o755)
         environment = os.environ.copy()
+        environment.pop("PYTHON", None)
         environment["PATH"] = f"{fake_bin}{os.pathsep}{environment.get('PATH', '')}"
         return subprocess.run(
             ["bash", str(SETUP_VAULT), *arguments],

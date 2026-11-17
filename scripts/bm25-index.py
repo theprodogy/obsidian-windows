@@ -69,6 +69,7 @@ PLUGIN_ROOT = Path(__file__).resolve().parent.parent
 if str(PLUGIN_ROOT) not in sys.path:
     sys.path.insert(0, str(PLUGIN_ROOT))
 
+from claude_obsidian import fsat
 from claude_obsidian.paths import VaultSelectionError, resolve_vault_root
 from claude_obsidian.transaction import (
     MutationLock,
@@ -210,8 +211,8 @@ def parse_top_k(value):
 def _directory_flags():
     return (
         os.O_RDONLY
-        | getattr(os, "O_DIRECTORY", 0)
-        | getattr(os, "O_NOFOLLOW", 0)
+        | fsat.O_DIRECTORY
+        | fsat.O_NOFOLLOW
         | getattr(os, "O_CLOEXEC", 0)
         | getattr(os, "O_NONBLOCK", 0)
     )
@@ -220,7 +221,7 @@ def _directory_flags():
 def _open_runtime_directory(parent_fd, name):
     """Open one derived-runtime directory without following a replaced alias."""
 
-    descriptor = os.open(name, _directory_flags(), dir_fd=parent_fd)
+    descriptor = fsat.open_at(parent_fd, name, _directory_flags())
     metadata = os.fstat(descriptor)
     if not stat.S_ISDIR(metadata.st_mode):
         os.close(descriptor)
@@ -242,10 +243,10 @@ def _pinned_chunk_documents(meta_fd):
             f"cannot open the pinned chunk directory: {exc}",
         ) from exc
     try:
-        with os.scandir(chunks_fd) as addresses:
-            address_names = sorted(
-                entry.name for entry in addresses if entry.is_dir(follow_symlinks=False)
-            )
+        address_names = sorted(
+            name for name in fsat.listdir_fd(chunks_fd)
+            if stat.S_ISDIR(fsat.stat_at(chunks_fd, name).st_mode)
+        )
         for address in address_names:
             try:
                 address_fd = _open_runtime_directory(chunks_fd, address)
@@ -253,13 +254,12 @@ def _pinned_chunk_documents(meta_fd):
                 log(f"  skip (unsafe runtime directory): {CHUNKS_DIR / address}")
                 continue
             try:
-                with os.scandir(address_fd) as entries:
-                    names = sorted(
-                        entry.name
-                        for entry in entries
-                        if entry.is_file(follow_symlinks=False)
-                        and entry.name.startswith("chunk-")
-                        and entry.name.endswith(".json")
+                names = sorted(
+                    name
+                    for name in fsat.listdir_fd(address_fd)
+                    if name.startswith("chunk-")
+                    and name.endswith(".json")
+                    and stat.S_ISREG(fsat.stat_at(address_fd, name).st_mode)
                     )
                 for name in names:
                     relative = f"chunks/{address}/{name}"
@@ -492,7 +492,7 @@ def discover_chunks(*, meta_fd=None, vault_root_fd=None):
             log(f"  skip (stale): {chunk_file} — {reason}")
             continue
         chunk_id = f"{address}:{idx}"
-        rel_path = str(chunk_file.relative_to(rel_root))
+        rel_path = chunk_file.relative_to(rel_root).as_posix()
         yield chunk_id, rel_path, text, data
 
 

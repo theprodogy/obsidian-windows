@@ -153,7 +153,7 @@ if [ "$MODE" = "check" ]; then
     "--check cannot be combined with --approved-plan-sha256"
   [ -z "$GENERATED_AT" ] || fail_usage "--check cannot be combined with --generated-at"
   [ -z "$OPERATION_ID" ] || fail_usage "--check cannot be combined with --operation-id"
-  exec python3 "$CORE" doctor --vault "$VAULT"
+  exec "${PYTHON:-python3}" "$CORE" doctor --vault "$VAULT"
 fi
 
 if [ "$ACTION" = "auto" ]; then
@@ -164,7 +164,7 @@ if [ "$ACTION" = "auto" ]; then
   fi
 fi
 
-COMMAND=(python3 "$CORE" "$ACTION" "$VAULT")
+COMMAND=("${PYTHON:-python3}" "$CORE" "$ACTION" "$VAULT")
 $FORCE && COMMAND+=(--force)
 [ -z "$GENERATED_AT" ] || COMMAND+=(--generated-at "$GENERATED_AT")
 [ -z "$OPERATION_ID" ] || COMMAND+=(--operation-id "$OPERATION_ID")

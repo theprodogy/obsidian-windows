@@ -1,6 +1,11 @@
 # claude-obsidian deterministic developer entry points.
 
+ifeq ($(OS),Windows_NT)
+PYTHON ?= python
+else
 PYTHON ?= python3
+endif
+export PYTHON
 export PYTHONDONTWRITEBYTECODE := 1
 
 .PHONY: help test test-python test-shell test-contracts test-package validate \

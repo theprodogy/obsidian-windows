@@ -59,9 +59,9 @@ done
 
 if $CHECK || [ -z "$MODE" ]; then
   if [ -n "$VAULT" ]; then
-    exec python3 "$CLI" mode get --vault "$VAULT"
+    exec "${PYTHON:-python3}" "$CLI" mode get --vault "$VAULT"
   fi
-  exec python3 "$CLI" mode get
+  exec "${PYTHON:-python3}" "$CLI" mode get
 fi
 
 case "$MODE" in
@@ -74,4 +74,4 @@ arguments=(mode set "$MODE")
 $APPLY && arguments+=(--apply)
 [ -n "$APPROVED_PLAN_SHA256" ] && arguments+=(--approved-plan-sha256 "$APPROVED_PLAN_SHA256")
 [ -n "$GENERATED_AT" ] && arguments+=(--generated-at "$GENERATED_AT")
-exec python3 "$CLI" "${arguments[@]}"
+exec "${PYTHON:-python3}" "$CLI" "${arguments[@]}"

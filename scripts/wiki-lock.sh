@@ -10,9 +10,9 @@
 set -euo pipefail
 export PYTHONDONTWRITEBYTECODE=1
 
-SCRIPT_DIR="${BASH_SOURCE[0]%/*}"
+SCRIPT_DIR="${BASH_SOURCE[0]%[/\\]*}"
 [ "$SCRIPT_DIR" != "${BASH_SOURCE[0]}" ] || SCRIPT_DIR="."
 PLUGIN_ROOT="$(CDPATH='' cd -- "$SCRIPT_DIR/.." && pwd -P)"
 export PYTHONPATH="$PLUGIN_ROOT${PYTHONPATH:+:$PYTHONPATH}"
 
-exec python3 -B -P -m claude_obsidian.legacy_lock "$@"
+exec "${PYTHON:-python3}" -B -P -m claude_obsidian.legacy_lock "$@"

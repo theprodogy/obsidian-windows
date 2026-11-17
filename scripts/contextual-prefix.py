@@ -105,6 +105,7 @@ from claude_obsidian.ollama import (
     read_json_object,
     validate_model_response,
 )
+from claude_obsidian import fsat
 from claude_obsidian.paths import VaultSelectionError, resolve_vault_root
 from claude_obsidian.url_safety import url_credential_issue
 from claude_obsidian.transaction import (
@@ -228,15 +229,15 @@ def sha256(text):
 def _directory_flags():
     return (
         os.O_RDONLY
-        | getattr(os, "O_DIRECTORY", 0)
-        | getattr(os, "O_NOFOLLOW", 0)
+        | fsat.O_DIRECTORY
+        | fsat.O_NOFOLLOW
         | getattr(os, "O_CLOEXEC", 0)
         | getattr(os, "O_NONBLOCK", 0)
     )
 
 
 def _open_runtime_directory(parent_fd, name):
-    descriptor = os.open(name, _directory_flags(), dir_fd=parent_fd)
+    descriptor = fsat.open_at(parent_fd, name, _directory_flags())
     if not stat.S_ISDIR(os.fstat(descriptor).st_mode):
         os.close(descriptor)
         raise OSError(f"runtime component is not a directory: {name}")
@@ -256,24 +257,23 @@ def _pinned_chunk_paths(meta_fd):
         ) from exc
     paths = []
     try:
-        with os.scandir(chunks_fd) as addresses:
-            names = sorted(
-                entry.name for entry in addresses if entry.is_dir(follow_symlinks=False)
-            )
+        names = sorted(
+            name for name in fsat.listdir_fd(chunks_fd)
+            if stat.S_ISDIR(fsat.stat_at(chunks_fd, name).st_mode)
+        )
         for address in names:
             try:
                 address_fd = _open_runtime_directory(chunks_fd, address)
             except OSError:
                 continue
             try:
-                with os.scandir(address_fd) as entries:
-                    for entry in sorted(entries, key=lambda value: value.name):
-                        if (
-                            entry.is_file(follow_symlinks=False)
-                            and entry.name.startswith("chunk-")
-                            and entry.name.endswith(".json")
-                        ):
-                            paths.append(CHUNKS_DIR / address / entry.name)
+                for name in sorted(fsat.listdir_fd(address_fd)):
+                    if (
+                        name.startswith("chunk-")
+                        and name.endswith(".json")
+                        and stat.S_ISREG(fsat.stat_at(address_fd, name).st_mode)
+                    ):
+                        paths.append(CHUNKS_DIR / address / name)
             finally:
                 os.close(address_fd)
     finally:
@@ -1183,7 +1183,7 @@ def process_page(
     tier = pick_prefix_tier(force_synthetic, allow_egress=allow_egress, local_ollama=local_ollama)
     prefix_profile = prefix_profile_for(tier, anthropic_model=anthropic_model, ollama_config=ollama_config)
     progress = (progress_label + " ") if progress_label else ""
-    page_rel = str(page_path.relative_to(VAULT_ROOT))
+    page_rel = page_path.relative_to(VAULT_ROOT).as_posix()
     # Local mode without a current proof (preflight failed, or peek skipped
     # it): no request can be made, so existing records from the same local
     # endpoint and model stay authoritative for unchanged chunks.
