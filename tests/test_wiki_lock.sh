@@ -15,6 +15,13 @@
 
 set -uo pipefail
 
+case "$(uname -s)" in
+  MINGW*|MSYS*|CYGWIN*)
+    # Git Bash's ln -s silently copies unless native NTFS symlinks are requested.
+    export MSYS=winsymlinks:nativestrict
+    ;;
+esac
+
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LOCK_SH="$ROOT/scripts/wiki-lock.sh"
 
@@ -166,7 +173,9 @@ RC_NL=$( (wl acquire $'wiki/concepts/Foo\nbar.md' >/dev/null 2>&1); echo $? )
 assert_eq "acquire newline path rejected" "4" "$RC_NL"
 
 # ── path validation: carriage return rejected (v1.7.2; closes audit M4) ──────
-RC_CR=$( (wl acquire $'wiki/concepts/Foo\rbar.md' >/dev/null 2>&1); echo $? )
+# No command substitution here: Git Bash drops the literal CR from arguments inside $( ).
+wl acquire $'wiki/concepts/Foo\rbar.md' >/dev/null 2>&1
+RC_CR=$?
 assert_eq "acquire carriage-return path rejected" "4" "$RC_CR"
 
 # ── numeric inputs are validated before Bash arithmetic ──────────────────────────────

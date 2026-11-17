@@ -22,6 +22,7 @@ import time
 from pathlib import Path
 from unittest import mock
 
+import _lf_fixtures  # noqa: F401
 ROOT = Path(__file__).resolve().parent.parent
 HELPER = ROOT / "scripts" / "tiling-check.py"
 os.environ["CLAUDE_OBSIDIAN_VAULT"] = str(ROOT)

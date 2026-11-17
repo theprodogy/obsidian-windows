@@ -113,12 +113,6 @@ class CanonicalContractTests(unittest.TestCase):
     def test_canonical_core_capabilities_report_only_behavioral_verification(
         self,
     ) -> None:
-        if os.name == "nt":
-            self.skipTest(
-                "wiki/wiki-lint verifiers exercise vault mutation, which native "
-                "Windows refuses by design (UNSUPPORTED_PLATFORM), so verified "
-                "capabilities report degraded here"
-            )
         report = evaluate_capabilities(ROOT, verify=True)
         core = {
             item["id"]: item

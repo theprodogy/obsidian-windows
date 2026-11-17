@@ -13,7 +13,7 @@ from unittest import mock
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from claude_obsidian import legacy_lock
+from claude_obsidian import fsat, legacy_lock
 
 
 def ascii_path_of_length(length: int) -> str:
@@ -58,6 +58,10 @@ class LegacyLockRuntimeRaceTests(unittest.TestCase):
                 descriptor = original(parent, component, create=create)
                 if component == "locks" and descriptor is not None and not swapped:
                     swapped = True
+                    if os.name == "nt":
+                        with self.assertRaises(PermissionError):
+                            locks.rename(pinned)
+                        return descriptor
                     locks.rename(pinned)
                     locks.symlink_to(outside, target_is_directory=True)
                 return descriptor
@@ -74,6 +78,7 @@ class LegacyLockRuntimeRaceTests(unittest.TestCase):
             self.assertTrue(swapped)
             self.assertEqual(outside_record.read_bytes(), before)
             self.assertFalse((pinned / name).exists())
+            self.assertFalse((locks / name).exists())
 
     def test_meta_parent_swap_cannot_redirect_release_or_canonical_unlock(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -100,6 +105,10 @@ class LegacyLockRuntimeRaceTests(unittest.TestCase):
                 nonlocal swapped
                 if component == "locks" and not swapped:
                     swapped = True
+                    if os.name == "nt":
+                        with self.assertRaises(PermissionError):
+                            meta.rename(pinned)
+                        return original(parent, component, create=create)
                     meta.rename(pinned)
                     meta.symlink_to(outside_meta, target_is_directory=True)
                 return original(parent, component, create=create)
@@ -151,13 +160,11 @@ class LegacyLockRuntimeRaceTests(unittest.TestCase):
             self.assertEqual(component_error.exception.exit_code, 4)
 
     def test_lock_directory_enumeration_is_cardinality_bounded(self) -> None:
-        if os.name == "nt":
-            self.skipTest("fd-based directory enumeration is POSIX-only")
         with tempfile.TemporaryDirectory() as directory:
             locks = Path(directory)
             (locks / "one").write_text("x", encoding="utf-8")
             (locks / "two").write_text("x", encoding="utf-8")
-            descriptor = os.open(locks, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+            descriptor = fsat.open_dir(locks)
             try:
                 with (
                     mock.patch.object(legacy_lock, "MAX_LOCK_DIRECTORY_ENTRIES", 1),

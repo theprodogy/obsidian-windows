@@ -21,6 +21,8 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import _lf_fixtures  # noqa: E402,F401
 ENGINE_PATH = ROOT / "claude_obsidian" / "lint_engine.py"
 FIXTURE = ROOT / "tests" / "fixtures" / "lint" / "vault"
 
@@ -323,6 +325,8 @@ tags:
         )
 
     def test_non_utf8_filename_is_escaped_in_json_and_markdown_outputs(self) -> None:
+        if os.name == "nt":
+            self.skipTest("NTFS filenames are UTF-16; a raw 0xff byte name cannot be created")
         with tempfile.TemporaryDirectory() as directory:
             vault = Path(directory) / "vault"
             (vault / ".obsidian").mkdir(parents=True)
@@ -2266,6 +2270,8 @@ class WikiEntrypointResolutionTests(unittest.TestCase):
         )
 
     def test_parent_markdown_ancestor_swap_cannot_supply_fragment(self) -> None:
+        if os.name == "nt":
+            self.skipTest("NT pins the opened ancestor directory without FILE_SHARE_DELETE, so the rename swap is refused by the OS")
         with tempfile.TemporaryDirectory() as directory:
             base = Path(directory)
             vault = base / "vault"

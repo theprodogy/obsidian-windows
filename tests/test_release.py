@@ -21,6 +21,8 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import _lf_fixtures  # noqa: E402,F401
 
 import claude_obsidian.release as release_module
 from claude_obsidian.release import (
@@ -165,6 +167,9 @@ class ReleaseRepo(unittest.TestCase):
 
     def commit(self, message: str) -> None:
         self.git("add", "-A")
+        if os.name == "nt" and (self.repo / "src" / "tool.py").exists():
+            # core.fileMode is false on NT, so the 0o755 chmod never reaches the index.
+            self.git("update-index", "--chmod=+x", "src/tool.py")
         self.git("commit", "-q", "-m", message)
 
     def write_config(self) -> None:

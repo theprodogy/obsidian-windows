@@ -25,6 +25,7 @@ import tempfile
 import unittest.mock
 from pathlib import Path
 
+import _lf_fixtures  # noqa: F401
 ROOT = Path(__file__).resolve().parent.parent
 RETRIEVE = ROOT / "scripts" / "retrieve.py"
 RERANK = ROOT / "scripts" / "rerank.py"

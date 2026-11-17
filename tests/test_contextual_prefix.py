@@ -31,7 +31,10 @@ if hasattr(sys.stdout, "reconfigure"):
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import _lf_fixtures  # noqa: E402,F401
 
+from claude_obsidian import fsat
 from claude_obsidian.transaction import MutationLock
 
 HELPER = ROOT / "scripts" / "contextual-prefix.py"
@@ -784,6 +787,14 @@ def test_pinned_contextual_write_survives_root_replacement() -> None:
                 root_fd = lock.duplicate_root_fd()
                 meta_fd = lock.duplicate_parent_fd()
                 try:
+                    if os.name == "nt":
+                        # NT pins the vault directory without FILE_SHARE_DELETE, so the
+                        # POSIX swap cannot happen; the refused rename is the confinement.
+                        try:
+                            root.rename(held_root)
+                        except OSError:
+                            return
+                        raise Fail("pinned vault root was renamed on nt")
                     root.rename(held_root)
                     replacement_address = root / ".vault-meta/chunks/c-000001"
                     replacement_address.mkdir(parents=True)
@@ -1323,7 +1334,7 @@ def test_invalid_utf8_aborts_selection_before_provider_or_cache_work():
                 allow_egress=False,
                 anthropic_model=cp.ANTHROPIC_MODEL,
             )
-            root_fd = os.open(vault, os.O_RDONLY) if pinned else None
+            root_fd = (fsat.open_dir(vault) if os.name == "nt" else os.open(vault, os.O_RDONLY)) if pinned else None
             try:
                 with (
                     _fixture_paths(vault),
@@ -1492,7 +1503,7 @@ def test_operation_request_and_byte_budgets_apply_across_pages():
             pages = []
             for name in ("A", "B"):
                 page = wiki / f"{name}.md"
-                page.write_text(f"---\ntitle: {name}\n---\nShared body.\n", encoding="utf-8")
+                page.write_text(f"---\ntitle: {name}\n---\nShared body.\n", encoding="utf-8", newline="\n")
                 pages.append(page)
             captured = []
 

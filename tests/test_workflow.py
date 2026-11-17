@@ -49,7 +49,7 @@ class WorkflowTests(unittest.TestCase):
         bundle = self.bundle(catalog='wiki/mocs/Projects.md')
         moc = self.vault / 'wiki/mocs/Projects.md'
         moc.parent.mkdir(parents=True)
-        moc.write_text('# Catalog\n')
+        moc.write_text('# Catalog\n', newline='\n')
         bundle['writes'][1]['mode'] = 'replace'
         bundle['expected_hashes']['wiki/mocs/Projects.md'] = hashlib.sha256(moc.read_bytes()).hexdigest()
         result = inspect_workflow(self.vault, bundle)
@@ -180,7 +180,7 @@ class WorkflowTests(unittest.TestCase):
                     write = bundle['writes'][index]
                     path = self.vault / write['path']
                     path.parent.mkdir(parents=True, exist_ok=True)
-                    path.write_text(content)
+                    path.write_text(content, newline='\n')
                     write['mode'] = 'replace'
                     bundle['expected_hashes'][write['path']] = hashlib.sha256(path.read_bytes()).hexdigest()
                 bundle['writes'][1]['content'] = '# Empty catalog\n'
@@ -193,7 +193,7 @@ class WorkflowTests(unittest.TestCase):
             write = bundle['writes'][index]
             path = self.vault / write['path']
             path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(content)
+            path.write_text(content, newline='\n')
             write['mode'] = 'replace'
             bundle['expected_hashes'][write['path']] = hashlib.sha256(path.read_bytes()).hexdigest()
         old_catalog = (self.vault / 'wiki/index.md').read_bytes()
@@ -237,11 +237,11 @@ class WorkflowTests(unittest.TestCase):
     def test_existing_catalog_drift_rejects_before_mutation(self):
         bundle = self.bundle()
         catalog = self.vault / 'wiki/index.md'
-        catalog.write_text(bundle['writes'][1]['content'])
+        catalog.write_text(bundle['writes'][1]['content'], newline='\n')
         bundle['writes'][1]['mode'] = 'replace'
         bundle['expected_hashes']['wiki/index.md'] = hashlib.sha256(catalog.read_bytes()).hexdigest()
         approval = inspect_workflow(self.vault, bundle)['approval_sha256']
-        catalog.write_text('# Catalog changed after review\n')
+        catalog.write_text('# Catalog changed after review\n', newline='\n')
         with self.assertRaises(TransactionError):
             apply_workflow(self.vault, bundle, approved_plan_sha256=approval)
         self.assertFalse((self.vault / 'wiki/concepts/Example.md').exists())
@@ -266,22 +266,22 @@ class WorkflowTests(unittest.TestCase):
 
     def test_content_file_is_frozen_and_drift_rejects_approval(self):
         draft = Path(self.temporary.name) / 'note.md'
-        draft.write_text('# Example\n\nSelected content.\n')
+        draft.write_text('# Example\n\nSelected content.\n', newline='\n')
         bundle = self.bundle()
         bundle['writes'][0].pop('content')
         bundle['writes'][0]['content_file'] = 'note.md'
         bundle['writes'][0]['sha256'] = hashlib.sha256(draft.read_bytes()).hexdigest()
         source = Path(self.temporary.name) / 'bundle.json'
-        source.write_text(json.dumps(bundle))
+        source.write_text(json.dumps(bundle), newline='\n')
         result = inspect_workflow(self.vault, source)
-        draft.write_text('# Different\n')
+        draft.write_text('# Different\n', newline='\n')
         with self.assertRaises(TransactionError):
             apply_workflow(self.vault, source, approved_plan_sha256=result['approval_sha256'])
         self.assertFalse((self.vault / '.vault-meta').exists())
 
     def test_hot_limit_and_preserved_log_history(self):
         old = '## [2026-10-16] save | Earlier\n\nEarlier content.\n'
-        (self.vault / 'wiki/log.md').write_text(old)
+        (self.vault / 'wiki/log.md').write_text(old, newline='\n')
         bundle = self.bundle()
         bundle['expected_hashes']['wiki/log.md'] = hashlib.sha256(old.encode()).hexdigest()
         bundle['writes'][2]['mode'] = 'replace'
@@ -364,7 +364,7 @@ class WorkflowTests(unittest.TestCase):
         bundle['writes'][2]['mode'] = 'replace'
         bundle['expected_hashes']['wiki/log.md'] = hashlib.sha256(old_log).hexdigest()
         source = Path(self.temporary.name) / 'invalid-utf8-log.json'
-        source.write_text(json.dumps(bundle), encoding='utf-8')
+        source.write_text(json.dumps(bundle), encoding='utf-8', newline='\n')
         before = {path.relative_to(self.vault): (path.read_bytes(), path.stat().st_mode)
                   for path in self.vault.rglob('*') if path.is_file()}
 
@@ -387,12 +387,12 @@ class WorkflowTests(unittest.TestCase):
 
     def completed_content_file(self):
         draft = Path(self.temporary.name) / 'note.md'
-        draft.write_text('# Example\n\nSelected content.\n')
+        draft.write_text('# Example\n\nSelected content.\n', newline='\n')
         bundle = self.bundle()
         bundle['writes'][0].pop('content')
         bundle['writes'][0].update(content_file='note.md', sha256=hashlib.sha256(draft.read_bytes()).hexdigest())
         source = Path(self.temporary.name) / 'bundle.json'
-        source.write_text(json.dumps(bundle))
+        source.write_text(json.dumps(bundle), newline='\n')
         approval = inspect_workflow(self.vault, source)['approval_sha256']
         result = apply_workflow(self.vault, source, approved_plan_sha256=approval)
         return bundle, source, draft, approval, result
@@ -407,7 +407,7 @@ class WorkflowTests(unittest.TestCase):
     def test_completed_replay_corrupt_json_and_utf8_are_bounded_cli_errors(self):
         bundle = self.bundle()
         source = Path(self.temporary.name) / 'bundle.json'
-        source.write_text(json.dumps(bundle), encoding='utf-8')
+        source.write_text(json.dumps(bundle), encoding='utf-8', newline='\n')
         approval = inspect_workflow(self.vault, source)['approval_sha256']
         apply_workflow(self.vault, source, approved_plan_sha256=approval)
         result_path = self.vault / '.vault-meta/transactions/workflow-example/changed-paths.json'
@@ -455,12 +455,12 @@ class WorkflowTests(unittest.TestCase):
     def test_completed_replay_malformed_writes_are_structurally_rejected(self):
         bundle = self.bundle()
         source = Path(self.temporary.name) / 'bundle.json'
-        source.write_text(json.dumps(bundle), encoding='utf-8')
+        source.write_text(json.dumps(bundle), encoding='utf-8', newline='\n')
         approval = inspect_workflow(self.vault, source)['approval_sha256']
         apply_workflow(self.vault, source, approved_plan_sha256=approval)
         malformed = dict(bundle)
         malformed['writes'] = [None]
-        source.write_text(json.dumps(malformed), encoding='utf-8')
+        source.write_text(json.dumps(malformed), encoding='utf-8', newline='\n')
         before = {path.relative_to(self.vault): (path.read_bytes(), path.stat().st_mode)
                   for path in self.vault.rglob('*') if path.is_file()}
         with self.assertRaises(TransactionError) as caught:
@@ -482,12 +482,12 @@ class WorkflowTests(unittest.TestCase):
 
     def test_result_only_receipt_cannot_certify_missing_draft_and_absent_coupled_pages(self):
         draft = Path(self.temporary.name) / 'note.md'
-        draft.write_text('# Example\n\nSelected content.\n')
+        draft.write_text('# Example\n\nSelected content.\n', newline='\n')
         bundle = self.bundle()
         bundle['writes'][0].pop('content')
         bundle['writes'][0].update(content_file='note.md', sha256=hashlib.sha256(draft.read_bytes()).hexdigest())
         source = Path(self.temporary.name) / 'bundle.json'
-        source.write_text(json.dumps(bundle))
+        source.write_text(json.dumps(bundle), newline='\n')
         plan = inspect_workflow(self.vault, source)
         target = self.vault / 'wiki/concepts/Example.md'
         target.parent.mkdir(parents=True)
@@ -502,7 +502,7 @@ class WorkflowTests(unittest.TestCase):
             'approval_sha256': plan['approval_sha256'],
             'changed_paths': [], 'hashes': {}, 'modes': {},
         }
-        (operation / 'changed-paths.json').write_text(json.dumps(forged))
+        (operation / 'changed-paths.json').write_text(json.dumps(forged), newline='\n')
         before = {path.relative_to(self.vault): (path.read_bytes() if path.is_file() else None, path.stat().st_mode)
                   for path in self.vault.rglob('*')}
         with self.assertRaises(TransactionError) as caught:
@@ -516,7 +516,7 @@ class WorkflowTests(unittest.TestCase):
 
     def test_completed_content_file_replay_does_not_ignore_available_draft_drift(self):
         _, source, draft, approval, _ = self.completed_content_file()
-        draft.write_text('# Changed draft\n')
+        draft.write_text('# Changed draft\n', newline='\n')
         with self.assertRaises(TransactionError) as caught:
             apply_workflow(self.vault, source, approved_plan_sha256=approval)
         self.assertEqual('CONTENT_HASH_MISMATCH', caught.exception.code)
@@ -524,7 +524,7 @@ class WorkflowTests(unittest.TestCase):
     def test_available_original_draft_cannot_mask_completed_target_drift(self):
         _, source, _, approval, _ = self.completed_content_file()
         target = self.vault / 'wiki/concepts/Example.md'
-        target.write_text('# Changed target\n')
+        target.write_text('# Changed target\n', newline='\n')
         with self.assertRaises(TransactionError) as caught:
             apply_workflow(self.vault, source, approved_plan_sha256=approval)
         self.assertEqual('OPERATION_RESULT_DRIFT', caught.exception.code)
@@ -561,10 +561,10 @@ class WorkflowTests(unittest.TestCase):
                     changed['operation_type'] = 'ingest'
                 else:
                     changed['writes'][1]['content'] += 'Changed catalog.\n'
-                source.write_text(json.dumps(changed))
+                source.write_text(json.dumps(changed), newline='\n')
                 with self.assertRaises(TransactionError):
                     apply_workflow(self.vault, source, approved_plan_sha256=approval)
-        source.write_text(json.dumps(bundle))
+        source.write_text(json.dumps(bundle), newline='\n')
         with self.assertRaises(TransactionError) as caught:
             apply_workflow(self.vault, source, approved_plan_sha256='0' * 64)
         self.assertEqual('PLAN_CHANGED', caught.exception.code)
@@ -576,13 +576,14 @@ class WorkflowTests(unittest.TestCase):
             with self.subTest(relative=relative):
                 target = self.vault / relative
                 original = target.read_bytes()
-                target.write_text('# Changed result\n')
+                target.write_text('# Changed result\n', newline='\n')
                 with self.assertRaises(TransactionError) as caught:
                     apply_workflow(self.vault, source, approved_plan_sha256=approval)
                 self.assertEqual('OPERATION_RESULT_DRIFT', caught.exception.code)
                 self.assertEqual('# Changed result\n', target.read_text())
                 target.write_bytes(original)
 
+    @unittest.skipIf(os.name == 'nt', 'Windows normalizes file modes to 0644 (_portable_file_mode)')
     def test_missing_draft_replay_rejects_file_mode_drift(self):
         _, source, draft, approval, _ = self.completed_content_file()
         draft.unlink()
@@ -618,7 +619,7 @@ class WorkflowTests(unittest.TestCase):
             bundle['writes'].append({'path': path, 'mode': 'create', 'content': content})
             bundle['expected_hashes'][path] = None
         source = case / 'bundle.json'
-        source.write_text(json.dumps(bundle))
+        source.write_text(json.dumps(bundle), newline='\n')
         approval = inspect_workflow(vault, source)['approval_sha256']
         result = apply_workflow(vault, source, approved_plan_sha256=approval)
         return vault, bundle, source, draft, approval, result
@@ -656,7 +657,7 @@ class WorkflowTests(unittest.TestCase):
                     changed['writes'][0]['sha256'] = '0' * 64
                 else:
                     changed['writes'][0]['sha256'] = hashlib.sha256((vault / 'wiki/concepts/Example.md').read_bytes()).hexdigest()
-                source.write_text(json.dumps(changed))
+                source.write_text(json.dumps(changed), newline='\n')
                 with self.assertRaises(TransactionError):
                     apply_workflow(vault, source, approved_plan_sha256=approval)
 
@@ -694,7 +695,7 @@ class WorkflowTests(unittest.TestCase):
         bundle = self.bundle()
         path = self.vault / 'wiki/concepts/Example.md'
         path.parent.mkdir()
-        path.write_text('# Previous\n')
+        path.write_text('# Previous\n', newline='\n')
         bundle['writes'][0]['mode'] = 'replace'
         bundle['expected_hashes']['wiki/concepts/Example.md'] = hashlib.sha256(path.read_bytes()).hexdigest()
         bundle['writes'] = [w for w in bundle['writes'] if w['path'] != 'wiki/index.md']
@@ -771,7 +772,7 @@ class WorkflowTests(unittest.TestCase):
             inspect_workflow(self.vault, bundle)
         self.assertEqual('INVALID_WRITE_MODE', caught.exception.code)
         path = Path(self.temporary.name) / 'listed.json'
-        path.write_text(json.dumps(bundle))
+        path.write_text(json.dumps(bundle), newline='\n')
         for command in ('transaction', 'workflow'):
             run = subprocess.run([sys.executable, '-B', str(ROOT / 'scripts/claude-obsidian.py'), command, 'inspect',
                                   str(path), '--vault', str(self.vault)], capture_output=True, text=True, timeout=30)
@@ -789,7 +790,7 @@ class WorkflowTests(unittest.TestCase):
             apply_workflow(self.vault, bundle, approved_plan_sha256=approval)
         self.assertEqual('OPERATION_ID_REUSED', caught.exception.code)
         path = Path(self.temporary.name) / 'reused.json'
-        path.write_text(json.dumps(bundle))
+        path.write_text(json.dumps(bundle), newline='\n')
         run = subprocess.run([sys.executable, '-B', str(ROOT / 'scripts/claude-obsidian.py'), 'workflow', 'apply',
                               str(path), '--vault', str(self.vault), '--approved-plan-sha256', approval],
                              capture_output=True, text=True, timeout=30)
@@ -870,7 +871,7 @@ class WorkflowTests(unittest.TestCase):
             path = f'wiki/meta/ledgers/{name}-ledger.json'
             content = json.dumps({'schema': f'claude-obsidian.{name}-ledger.v1',
                                   'generated_at': '2026-10-17T00:00:00Z', field: {}})
-            (self.vault / path).write_text(content)
+            (self.vault / path).write_text(content, newline='\n')
             bundle['writes'].append({'path': path, 'mode': 'replace', 'content': content})
             bundle['expected_hashes'][path] = hashlib.sha256(content.encode()).hexdigest()
         return bundle
@@ -911,7 +912,7 @@ class WorkflowTests(unittest.TestCase):
             intro, intro + '## [2026-10-18] save | Example\n\n', 1)
         bundle = self.seeded_save(vault, log, operation_id='fifo-save')
         path = Path(self.temporary.name) / 'fifo-save.json'
-        path.write_text(json.dumps(bundle))
+        path.write_text(json.dumps(bundle), newline='\n')
         approval = inspect_workflow(vault, bundle)['approval_sha256']
         apply_workflow(vault, bundle, approved_plan_sha256=approval)
 
@@ -934,7 +935,7 @@ class WorkflowTests(unittest.TestCase):
                      'expected_hashes': {'wiki/log.md': hashlib.sha256(log.encode()).hexdigest()},
                      'writes': [{'path': 'wiki/log.md', 'mode': 'replace', 'content': log}]}
             fresh_path = Path(self.temporary.name) / f'{command}.json'
-            fresh_path.write_text(json.dumps(fresh))
+            fresh_path.write_text(json.dumps(fresh), newline='\n')
             run = cli(command, 'inspect', str(fresh_path), '--vault', str(vault))
             self.assertNotIn('Traceback', run.stderr)
             self.assertEqual(2, run.returncode, run.stderr)
@@ -953,12 +954,12 @@ class WorkflowTests(unittest.TestCase):
 
     def test_content_file_requires_its_declared_hash(self):
         draft = Path(self.temporary.name) / 'note.md'
-        draft.write_text('# Example\n')
+        draft.write_text('# Example\n', newline='\n')
         bundle = self.bundle()
         bundle['writes'][0].pop('content')
         bundle['writes'][0]['content_file'] = 'note.md'
         path = Path(self.temporary.name) / 'bundle.json'
-        path.write_text(json.dumps(bundle))
+        path.write_text(json.dumps(bundle), newline='\n')
         with self.assertRaises(TransactionError) as caught:
             inspect_workflow(self.vault, path)
         self.assertEqual('CONTENT_HASH_REQUIRED', caught.exception.code)

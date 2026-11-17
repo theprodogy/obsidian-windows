@@ -17,6 +17,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+import claude_obsidian.fsat as fsat
 import claude_obsidian.transaction as transaction_module
 from claude_obsidian.transaction import (
     BUNDLE_SCHEMA,
@@ -30,6 +31,18 @@ from claude_obsidian.transaction import (
     recover_incomplete,
     sha256_file,
 )
+
+
+# fsat.stat_at on Windows spends one extra os.fstat before the probe's open.
+PROBE_FSTAT_CALL = 3 if os.name == "nt" else 2
+
+
+def expect_pinned_rename_refused(source: Path, destination: Path) -> None:
+    try:
+        os.rename(source, destination)
+    except PermissionError:
+        return
+    raise AssertionError(f"renaming pinned {source} must be refused")
 
 
 def make_vault(root: Path) -> Path:
@@ -1685,6 +1698,8 @@ def test_absent_vault_root_rejects_portable_sibling_aliases() -> None:
     with tempfile.TemporaryDirectory() as td:
         base = Path(td)
         for index, (sibling, requested) in enumerate((("Vault", "vault"), ("Ś", "ſ́"))):
+            if os.name == "nt" and index == 0:
+                continue  # NTFS is case-insensitive: Vault and vault are the same directory
             parent = base / f"parent-{index}"
             parent.mkdir()
             (parent / sibling).mkdir()
@@ -1755,6 +1770,9 @@ def test_sequential_transactions_reject_existing_unicode_portable_alias() -> Non
 
 
 def test_approval_binds_existing_and_result_file_modes() -> None:
+    if os.name == "nt":
+        print("SKIP test_approval_binds_existing_and_result_file_modes: Windows normalizes file modes to 0644 (_portable_file_mode)")
+        return
     with tempfile.TemporaryDirectory() as td:
         vault = make_vault(Path(td) / "vault")
         target = vault / "wiki/A.md"
@@ -1780,6 +1798,9 @@ def test_approval_binds_existing_and_result_file_modes() -> None:
 
 def test_idempotent_replay_rejects_byte_and_mode_drift() -> None:
     for drift in ("bytes", "mode"):
+        if drift == "mode" and os.name == "nt":
+            print("SKIP test_idempotent_replay_rejects_byte_and_mode_drift[mode]: Windows normalizes file modes to 0644 (_portable_file_mode)")
+            continue
         with tempfile.TemporaryDirectory() as td:
             vault = make_vault(Path(td) / "vault")
             operation = bundle(
@@ -2213,6 +2234,22 @@ def test_mutation_lock_release_and_reaping_ignore_replaced_external_alias() -> N
         lock = MutationLock(vault, timeout=0)
         lock.acquire()
 
+        if os.name == "nt":
+            expect_pinned_rename_refused(
+                lock.path, lock.path.with_name("mutation.lock.displaced")
+            )
+            try:
+                MutationLock(
+                    vault, timeout=0, stale_after=0, force_stale_lock=True
+                ).acquire()
+            except TransactionConflict as exc:
+                assert exc.code == "LOCK_TIMEOUT"
+            else:
+                raise AssertionError("a held mutation lock must not be reaped")
+            lock.release()
+            assert not lock.path.exists()
+            return
+
         displaced = lock.path.with_name("mutation.lock.displaced")
         os.rename(lock.path, displaced)
         outside = base / "outside-mutation-lock"
@@ -2267,6 +2304,22 @@ def test_mutation_lock_serializes_across_meta_directory_replacement() -> None:
         vault = make_vault(base / "vault")
         first = MutationLock(vault, timeout=0)
         first.acquire()
+
+        if os.name == "nt":
+            expect_pinned_rename_refused(
+                vault / ".vault-meta", vault / ".vault-meta-held"
+            )
+            try:
+                MutationLock(
+                    vault, timeout=0, stale_after=0, force_stale_lock=True
+                ).acquire()
+            except TransactionConflict as exc:
+                assert exc.code == "LOCK_TIMEOUT"
+            else:
+                raise AssertionError("vault advisory lock must span the held meta")
+            first.release()
+            assert not (vault / ".vault-meta/mutation.lock").exists()
+            return
 
         held_meta = vault / ".vault-meta-held"
         os.rename(vault / ".vault-meta", held_meta)
@@ -2346,21 +2399,31 @@ def test_apply_runtime_namespaces_are_descriptor_anchored() -> None:
                         vault / f".vault-meta/transactions/{operation_id}/backups"
                     )
                     parked = selected.with_name("backups-held")
+                if os.name == "nt":
+                    expect_pinned_rename_refused(selected, parked)
+                    return
                 selected.rename(parked)
                 selected.symlink_to(external, target_is_directory=True)
 
             try:
                 apply_bundle(vault, operation, progress=swap_namespace)
             except TransactionError as exc:
+                assert os.name != "nt", exc.code
                 assert exc.code in {
                     "VAULT_NAMESPACE_CHANGED",
                     "RUNTIME_NAMESPACE_CHANGED",
                 }, (variant, exc.code, str(exc))
             else:
-                raise AssertionError(f"{variant} runtime replacement must fail closed")
+                if os.name != "nt":
+                    raise AssertionError(
+                        f"{variant} runtime replacement must fail closed"
+                    )
 
             assert sentinel.read_bytes() == b"external-must-not-change\x00"
             assert sorted(path.name for path in external.iterdir()) == ["sentinel.bin"]
+            if os.name == "nt":
+                assert victim.read_text(encoding="utf-8") == "new\n"
+                continue
             assert parked is not None
             restored = parked / "wiki/A.md" if variant == "root" else victim
             assert restored.read_text(encoding="utf-8") == "old\n"
@@ -2397,6 +2460,9 @@ def test_meta_managed_targets_rollback_inside_pinned_namespace() -> None:
             held_meta = vault / f".vault-meta-held-{operation_type}"
 
             def swap_meta(_relative: str, _index: int) -> None:
+                if os.name == "nt":
+                    expect_pinned_rename_refused(vault / ".vault-meta", held_meta)
+                    return
                 (vault / ".vault-meta").rename(held_meta)
                 (vault / ".vault-meta").symlink_to(
                     external_meta, target_is_directory=True
@@ -2405,11 +2471,17 @@ def test_meta_managed_targets_rollback_inside_pinned_namespace() -> None:
             try:
                 apply_bundle(vault, operation, progress=swap_meta)
             except TransactionError as exc:
+                assert os.name != "nt", exc.code
                 assert exc.code == "RUNTIME_NAMESPACE_CHANGED"
             else:
-                raise AssertionError(
-                    "metadata replacement must roll back the pinned target"
-                )
+                if os.name != "nt":
+                    raise AssertionError(
+                        "metadata replacement must roll back the pinned target"
+                    )
+            if os.name == "nt":
+                assert target.read_text(encoding="utf-8") == new_content
+                assert external_target.read_bytes() == external_before
+                continue
             assert (held_meta / Path(relative).name).read_text(
                 encoding="utf-8"
             ) == old_content
@@ -2466,6 +2538,9 @@ def test_recovery_never_reads_a_replaced_external_operation() -> None:
             nonlocal swapped
             if name == "journal.json" and not swapped:
                 swapped = True
+                if os.name == "nt":
+                    expect_pinned_rename_refused(transaction, parked)
+                    return original_read(directory_fd, name, label=label, limit=limit)
                 transaction.rename(parked)
                 transaction.symlink_to(external, target_is_directory=True)
             return original_read(directory_fd, name, label=label, limit=limit)
@@ -2476,14 +2551,19 @@ def test_recovery_never_reads_a_replaced_external_operation() -> None:
                 try:
                     recover_incomplete(vault, mutation_lock=mutation_lock)
                 except TransactionError as exc:
+                    assert os.name != "nt", exc.code
                     assert exc.code == "RUNTIME_NAMESPACE_CHANGED"
                 else:
-                    raise AssertionError(
-                        "recovery operation replacement must fail closed"
-                    )
+                    if os.name != "nt":
+                        raise AssertionError(
+                            "recovery operation replacement must fail closed"
+                        )
         finally:
             transaction_module._read_runtime_json_at = original_read
-        assert victim.read_text(encoding="utf-8") == "victim-safe\n"
+        if os.name == "nt":
+            assert not victim.exists()
+        else:
+            assert victim.read_text(encoding="utf-8") == "victim-safe\n"
         assert external_journal.read_bytes() == external_before
         assert sorted(path.name for path in external.iterdir()) == ["journal.json"]
 
@@ -2503,14 +2583,14 @@ def test_read_runtime_bytes_tolerates_a_single_external_mtime_touch() -> None:
     with tempfile.TemporaryDirectory() as td:
         base = Path(td)
         target, payload = _seed_runtime_read_probe(base)
-        directory_fd = os.open(base, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        directory_fd = fsat.open_dir(base)
         original_fstat = os.fstat
         calls = 0
 
         def counting_fstat(descriptor):
             nonlocal calls
             calls += 1
-            if calls == 2:
+            if calls == PROBE_FSTAT_CALL:
                 stamp = original_fstat(descriptor).st_mtime_ns + 5_000_000_000
                 os.utime(target, ns=(stamp, stamp))
             return original_fstat(descriptor)
@@ -2536,14 +2616,14 @@ def test_read_runtime_bytes_fails_closed_on_a_genuine_size_change() -> None:
     with tempfile.TemporaryDirectory() as td:
         base = Path(td)
         target, payload = _seed_runtime_read_probe(base)
-        directory_fd = os.open(base, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        directory_fd = fsat.open_dir(base)
         original_fstat = os.fstat
         calls = 0
 
         def counting_fstat(descriptor):
             nonlocal calls
             calls += 1
-            if calls == 2:
+            if calls == PROBE_FSTAT_CALL:
                 target.write_bytes(payload + b"external-append-must-fail-closed\n")
             return original_fstat(descriptor)
 
@@ -2570,7 +2650,7 @@ def test_read_runtime_bytes_fails_closed_on_a_same_size_content_change() -> None
     with tempfile.TemporaryDirectory() as td:
         base = Path(td)
         target, payload = _seed_runtime_read_probe(base)
-        directory_fd = os.open(base, os.O_RDONLY | getattr(os, "O_DIRECTORY", 0))
+        directory_fd = fsat.open_dir(base)
         original_fstat = os.fstat
         calls = 0
         tampered = bytes(reversed(payload))
@@ -2579,8 +2659,12 @@ def test_read_runtime_bytes_fails_closed_on_a_same_size_content_change() -> None
         def counting_fstat(descriptor):
             nonlocal calls
             calls += 1
-            if calls == 2:
+            if calls == PROBE_FSTAT_CALL:
                 target.write_bytes(tampered)
+                if os.name == "nt":
+                    # Windows clock ticks ~15.6ms, so a same-tick rewrite keeps the seeded mtime
+                    stamp = original_fstat(descriptor).st_mtime_ns + 1_000_000_000
+                    os.utime(target, ns=(stamp, stamp))
             return original_fstat(descriptor)
 
         os.fstat = counting_fstat
@@ -2660,10 +2744,7 @@ def test_runtime_removal_enumerates_through_a_fresh_descriptor() -> None:
         (operation / "bundle.json").write_text("{}\n", encoding="utf-8")
         (backups / "original.bin").write_bytes(b"original\n")
 
-        parent_fd = os.open(
-            transactions,
-            os.O_RDONLY | os.O_DIRECTORY | getattr(os, "O_CLOEXEC", 0),
-        )
+        parent_fd = fsat.open_dir(transactions)
         operation_fd = transaction_module._open_runtime_directory_at(
             parent_fd, "cursor-at-end", create=False
         )
@@ -3320,8 +3401,8 @@ def test_recovery_skips_journal_writes_that_never_started() -> None:
                 })
             # A applied, B in flight (written, not yet journaled), C never started
             # and later deleted by an external editor.
-            (vault / "wiki/A.md").write_text("new A\n" if state == "applying" else "old A\n")
-            (vault / "wiki/B.md").write_text("new B\n" if state == "applying" else "user B\n")
+            (vault / "wiki/A.md").write_text("new A\n" if state == "applying" else "old A\n", newline="\n")
+            (vault / "wiki/B.md").write_text("new B\n" if state == "applying" else "user B\n", newline="\n")
             journal = {
                 "schema": "claude-obsidian.transaction-journal.v1",
                 "operation_id": "never-started",

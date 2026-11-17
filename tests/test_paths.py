@@ -163,7 +163,7 @@ def test_workspace_config_rejects_ambiguous_or_nonregular_authority() -> None:
         config = workspace / ".claude-obsidian.json"
         config.write_text(
             '{"schema":"claude-obsidian.workspace.v1",'
-            f'"vault":"{first}","vault":"{second}"}}',
+            f'"vault":{json.dumps(str(first))},"vault":{json.dumps(str(second))}}}',
             encoding="utf-8",
         )
         try:

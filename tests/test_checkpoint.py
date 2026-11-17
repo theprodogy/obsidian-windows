@@ -234,6 +234,9 @@ def test_intent_to_add_index_state_is_rejected_and_preserved() -> None:
 
 
 def test_executable_mode_drift_is_rejected_before_ref_update() -> None:
+    if os.name == "nt":
+        print("SKIP test_executable_mode_drift_is_rejected_before_ref_update: Windows has no executable bit and normalizes file modes to 0644")
+        return
     with tempfile.TemporaryDirectory() as td:
         root = make_repo(Path(td) / "vault")
         transaction(root)
@@ -249,6 +252,9 @@ def test_executable_mode_drift_is_rejected_before_ref_update() -> None:
 
 
 def test_executable_mode_drift_is_ignored_when_core_filemode_is_false() -> None:
+    if os.name == "nt":
+        print("SKIP test_executable_mode_drift_is_ignored_when_core_filemode_is_false: Windows has no executable bit and normalizes file modes to 0644")
+        return
     for false_value in ("false", "no", "off", "0"):
         with tempfile.TemporaryDirectory() as td:
             root = make_repo(Path(td) / "vault")

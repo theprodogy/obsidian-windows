@@ -17,6 +17,8 @@ from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import _lf_fixtures  # noqa: E402,F401
 
 import claude_obsidian.retrieval_eval as evaluation
 from claude_obsidian.retrieval_eval import (

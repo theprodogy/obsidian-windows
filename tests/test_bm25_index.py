@@ -23,7 +23,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import _lf_fixtures  # noqa: E402,F401
 
+from claude_obsidian import fsat
 from claude_obsidian.transaction import MutationLock
 
 HELPER = ROOT / "scripts" / "bm25-index.py"
@@ -679,7 +682,7 @@ def test_invalid_utf8_source_is_stale_in_both_freshness_branches():
         assert_eq("invalid UTF-8 direct hash cache is null", [None], list(direct_cache.values()))
 
         pinned_cache = {}
-        root_fd = os.open(root, os.O_RDONLY | os.O_DIRECTORY)
+        root_fd = fsat.open_dir(root)
         try:
             current, reason = bm25.source_page_is_current(
                 record, root, pinned_cache, vault_root_fd=root_fd
@@ -781,6 +784,14 @@ def test_pinned_build_survives_lexical_root_replacement():
                 root_fd = lock.duplicate_root_fd()
                 meta_fd = lock.duplicate_parent_fd()
                 try:
+                    if os.name == "nt":
+                        # NT pins the directory without FILE_SHARE_DELETE: the POSIX swap
+                        # cannot happen, the refused rename is the confinement.
+                        try:
+                            root.rename(held_root)
+                        except OSError:
+                            return
+                        raise Fail("pinned directory was renamed on nt")
                     root.rename(held_root)
                     (root / ".vault-meta/bm25").mkdir(parents=True)
                     outside_sentinel = root / ".vault-meta/bm25/sentinel"
@@ -850,6 +861,14 @@ def test_pinned_build_never_follows_meta_or_bm25_aliases():
                 root_fd = lock.duplicate_root_fd()
                 meta_fd = lock.duplicate_parent_fd()
                 try:
+                    if os.name == "nt":
+                        # NT pins the directory without FILE_SHARE_DELETE: the POSIX swap
+                        # cannot happen, the refused rename is the confinement.
+                        try:
+                            meta.rename(held_meta)
+                        except OSError:
+                            return
+                        raise Fail("pinned directory was renamed on nt")
                     meta.rename(held_meta)
                     meta.symlink_to(outside_meta, target_is_directory=True)
                     index = bm25.build_index(meta_fd=meta_fd, vault_root_fd=root_fd)

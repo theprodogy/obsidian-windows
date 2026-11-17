@@ -233,9 +233,12 @@ def test_path_traversal_symlinks_and_malicious_names_fail_closed() -> None:
         (nested / "note.md").write_text("nested\n", encoding="utf-8")
         expect_code("SOURCE_SYMLINK", lambda: capture_filesystem(vault, aliased))
 
-        malicious = vault / "inbox" / "bad\nname.md"
-        malicious.write_text("bad\n", encoding="utf-8")
-        expect_code("UNSAFE_FILENAME", lambda: capture_filesystem(vault, malicious))
+        if os.name == "nt":
+            print("SKIP newline filename case: NTFS filenames cannot contain a newline")
+        else:
+            malicious = vault / "inbox" / "bad\nname.md"
+            malicious.write_text("bad\n", encoding="utf-8")
+            expect_code("UNSAFE_FILENAME", lambda: capture_filesystem(vault, malicious))
 
         raw_capture = vault / ".raw/captured"
         raw_capture.symlink_to(base, target_is_directory=True)
@@ -830,6 +833,25 @@ def test_queue_lock_release_and_reaping_ignore_replaced_external_alias() -> None
         lock = CaptureQueueLock(vault, timeout=0)
         lock.acquire()
 
+        if os.name == "nt":
+            try:
+                os.rename(lock.path, lock.path.with_name("queue.lock.displaced"))
+            except PermissionError:
+                pass
+            else:
+                raise AssertionError("renaming a held queue lock must be refused")
+            try:
+                CaptureQueueLock(
+                    vault, timeout=0, stale_after=0, force_stale_lock=True
+                ).acquire()
+            except CaptureConflict as exc:
+                assert exc.code == "QUEUE_LOCK_TIMEOUT"
+            else:
+                raise AssertionError("a held queue lock must not be reaped")
+            lock.release()
+            assert not lock.path.exists()
+            return
+
         displaced = lock.path.with_name("queue.lock.displaced")
         os.rename(lock.path, displaced)
         outside = base / "outside-capture-lock"
@@ -886,6 +908,20 @@ def _replace_runtime_boundary(
     """Replace one public directory entry and return pinned/external runtimes."""
 
     outside = base / f"outside-{boundary}"
+    if os.name == "nt":
+        pinned = {
+            "vault": vault,
+            "metadata": vault / ".vault-meta",
+            "capture": vault / ".vault-meta/capture",
+        }[boundary]
+        try:
+            os.rename(pinned, pinned.with_name(pinned.name + ".selected"))
+        except PermissionError:
+            pass
+        else:
+            raise AssertionError(f"renaming pinned {boundary} must be refused")
+        outside.mkdir()
+        return vault / ".vault-meta/capture", outside
     if boundary == "vault":
         selected = base / "selected-vault"
         os.rename(vault, selected)

@@ -29,10 +29,12 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 import claude_obsidian.cli as cli_module
+import claude_obsidian.fsat as fsat
 import claude_obsidian.paths as paths_module
 import claude_obsidian.transaction as transaction_module
 from claude_obsidian.transaction import (
     BUNDLE_SCHEMA,
+    TransactionError,
     TransactionValidationError,
     apply_bundle,
     inspect_bundle,
@@ -83,6 +85,14 @@ def windows_mode():
         finally:
             if saved_flag is not None:
                 os.O_DIRECTORY = saved_flag
+
+
+@contextlib.contextmanager
+def host_without_fsat():
+    """A host whose fsat support probe fails, on POSIX and on native Windows."""
+
+    with windows_mode(), mock.patch.object(fsat, "supported", lambda: False):
+        yield
 
 
 def expect_validation_error(code: str, callable_, *args, **kwargs):
@@ -287,7 +297,7 @@ def test_vault_identity_path_mode_states() -> None:
         file_vault = base / "file-vault"
         file_vault.write_text("x", encoding="utf-8")
         expect_validation_error(
-            "VAULT_NOT_DIRECTORY",
+            "UNSAFE_VAULT_IDENTITY" if IS_WINDOWS else "VAULT_NOT_DIRECTORY",
             transaction_module._vault_object_identity,
             file_vault,
         )
@@ -304,8 +314,21 @@ def test_zero_inode_identity_fails_closed() -> None:
     assert paths_module.is_same_object(fake, fake) is False
 
 
-def test_apply_refused_before_any_side_effect() -> None:
-    with tempfile.TemporaryDirectory() as td, windows_mode():
+def test_apply_succeeds_on_native_windows() -> None:
+    if not IS_WINDOWS:
+        return
+    with tempfile.TemporaryDirectory() as td:
+        vault = make_vault(Path(td) / "vault")
+        operation = bundle(
+            "native-apply", [{"path": "wiki/A.md", "mode": "create", "content": "x\n"}]
+        )
+        result = apply_bundle(vault, operation)
+        assert result["changed_paths"] == ["wiki/A.md"]
+        assert (vault / "wiki" / "A.md").read_bytes() == b"x\n"
+
+
+def test_apply_refused_on_host_without_fsat_support() -> None:
+    with tempfile.TemporaryDirectory() as td, host_without_fsat():
         vault = make_vault(Path(td) / "vault")
         operation = bundle(
             "refused", [{"path": "wiki/A.md", "mode": "create", "content": "x"}]
@@ -319,8 +342,42 @@ def test_apply_refused_before_any_side_effect() -> None:
         assert not (vault / "wiki" / "A.md").exists()
 
 
-def test_cli_surfaces_platform_error_without_traceback() -> None:
-    with tempfile.TemporaryDirectory() as td, windows_mode():
+def test_cli_applies_natively_on_windows() -> None:
+    if not IS_WINDOWS:
+        return
+    with tempfile.TemporaryDirectory() as td:
+        vault = make_vault(Path(td) / "vault")
+        operation = bundle(
+            "cli-native", [{"path": "wiki/A.md", "mode": "create", "content": "# A\n"}]
+        )
+        bundle_path = Path(td) / "bundle.json"
+        bundle_path.write_text(json.dumps(operation), encoding="utf-8")
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            inspect_rc = cli_module.main(
+                ["transaction", "inspect", "--vault", str(vault), str(bundle_path)]
+            )
+        assert inspect_rc == 0, err.getvalue()
+        plan = json.loads(out.getvalue())
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            apply_rc = cli_module.main(
+                [
+                    "transaction",
+                    "apply",
+                    "--vault",
+                    str(vault),
+                    str(bundle_path),
+                    "--approved-plan-sha256",
+                    str(plan["approval_sha256"]),
+                ]
+            )
+        assert apply_rc == 0, err.getvalue()
+        assert (vault / "wiki" / "A.md").read_bytes() == b"# A\n"
+
+
+def test_cli_surfaces_platform_error_on_host_without_fsat_support() -> None:
+    with tempfile.TemporaryDirectory() as td, host_without_fsat():
         vault = make_vault(Path(td) / "vault")
         operation = bundle(
             "cli-win", [{"path": "wiki/A.md", "mode": "create", "content": "# A\n"}]
@@ -353,10 +410,36 @@ def test_cli_surfaces_platform_error_without_traceback() -> None:
         assert "Traceback" not in err.getvalue()
 
 
-def test_init_apply_refused_before_mkdir() -> None:
+def test_init_apply_creates_vault_on_native_windows() -> None:
+    if not IS_WINDOWS:
+        return
+    with tempfile.TemporaryDirectory() as td:
+        destination = Path(td) / "new-vault"
+        common = [
+            "init",
+            str(destination),
+            "--generated-at",
+            "2026-07-31T00:00:00Z",
+            "--operation-id",
+            "win-init",
+        ]
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            assert cli_module.main(common) == 0, err.getvalue()
+        approval = json.loads(out.getvalue())["approved_plan_sha256"]
+        out, err = io.StringIO(), io.StringIO()
+        with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+            rc = cli_module.main(
+                [*common, "--apply", "--approved-plan-sha256", str(approval)]
+            )
+        assert rc == 0, err.getvalue()
+        assert (destination / "wiki").is_dir()
+
+
+def test_init_apply_refused_before_mkdir_on_host_without_fsat_support() -> None:
     # A refused init must not create-and-abandon the destination directory
     # (failed Init roots are deliberately never path-deleted).
-    with tempfile.TemporaryDirectory() as td, windows_mode():
+    with tempfile.TemporaryDirectory() as td, host_without_fsat():
         destination = Path(td) / "new-vault"
         out, err = io.StringIO(), io.StringIO()
         with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
@@ -383,6 +466,23 @@ def test_identity_change_detected_in_path_mode() -> None:
         base = Path(td)
         vault = make_vault(base / "vault")
         original_prepare = transaction_module._prepare_writes
+        operation = bundle(
+            "swap", [{"path": "wiki/A.md", "mode": "create", "content": "x"}]
+        )
+
+        if IS_WINDOWS:
+            # The pinned vault cannot be renamed, so the swap is refused outright.
+            def refused_prepare(*args, **kwargs):
+                result = original_prepare(*args, **kwargs)
+                try:
+                    os.rename(vault, base / "vault-taken")
+                except PermissionError:
+                    return result
+                raise AssertionError("renaming the pinned vault must be refused")
+
+            with mock.patch.object(transaction_module, "_prepare_writes", refused_prepare):
+                assert inspect_bundle(vault, operation)["valid"] is True
+            return
 
         def swapping_prepare(*args, **kwargs):
             result = original_prepare(*args, **kwargs)
@@ -398,9 +498,7 @@ def test_identity_change_detected_in_path_mode() -> None:
                 "VAULT_IDENTITY_CHANGED",
                 inspect_bundle,
                 vault,
-                bundle(
-                    "swap", [{"path": "wiki/A.md", "mode": "create", "content": "x"}]
-                ),
+                operation,
             )
 
 
@@ -448,10 +546,70 @@ def test_native_windows_bundle_and_workspace_config_load() -> None:
         assert selection.root == paths_module.canonical(vault)
 
 
-def test_capability_predicates_are_false_on_nt() -> None:
+def test_junction_swap_of_wiki_during_apply_fails_closed() -> None:
+    if not IS_WINDOWS:
+        return
+    import subprocess
+
+    with tempfile.TemporaryDirectory() as td:
+        base = Path(td)
+        vault = make_vault(base / "vault")
+        external = base / "external"
+        external.mkdir()
+        (external / "sentinel.txt").write_text("keep", encoding="utf-8")
+
+        def swap_wiki(_relative: str, _index: int) -> None:
+            os.rename(vault / "wiki", vault / "wiki-held")
+            subprocess.run(
+                ["cmd", "/c", "mklink", "/J", str(vault / "wiki"), str(external)],
+                capture_output=True,
+                check=True,
+            )
+
+        try:
+            apply_bundle(
+                vault,
+                bundle("junction", [{"path": "wiki/A.md", "mode": "create", "content": "x"}]),
+                progress=swap_wiki,
+            )
+        except TransactionError:
+            pass
+        else:
+            raise AssertionError("a junction swapped over wiki/ must fail closed")
+        assert sorted(os.listdir(external)) == ["sentinel.txt"]
+
+
+def test_zero_inode_vault_identity_is_refused_on_native_windows() -> None:
+    if not IS_WINDOWS:
+        return
+    with tempfile.TemporaryDirectory() as td:
+        vault = make_vault(Path(td) / "vault")
+        probe = os.lstat(vault)
+        zeroed = os.stat_result((probe.st_mode, 0, probe.st_dev, *tuple(probe)[3:10]))
+        expect_validation_error(
+            "UNSAFE_VAULT_IDENTITY",
+            transaction_module._require_stable_identity,
+            zeroed,
+            vault,
+        )
+
+
+def test_capability_predicates_are_true_on_native_windows() -> None:
+    if not IS_WINDOWS:
+        return
     import claude_obsidian.legacy_lock as legacy_lock_module
 
-    with mock.patch.object(os, "name", "nt"):
+    assert paths_module.supports_confined_dirfd() is True
+    assert transaction_module._supports_confined_dirfd() is True
+    assert legacy_lock_module._supports_confined_runtime() is True
+    transaction_module._require_lock_dirfd_support()
+    transaction_module._require_write_platform()
+
+
+def test_capability_predicates_are_false_on_host_without_fsat_support() -> None:
+    import claude_obsidian.legacy_lock as legacy_lock_module
+
+    with host_without_fsat():
         assert paths_module.supports_confined_dirfd() is False
         assert transaction_module._supports_confined_dirfd() is False
         assert legacy_lock_module._supports_confined_runtime() is False
@@ -521,13 +679,19 @@ def main() -> None:
     test_unaliased_directory_rejects_indirection()
     test_vault_identity_path_mode_states()
     test_zero_inode_identity_fails_closed()
-    test_apply_refused_before_any_side_effect()
-    test_cli_surfaces_platform_error_without_traceback()
-    test_init_apply_refused_before_mkdir()
+    test_apply_succeeds_on_native_windows()
+    test_apply_refused_on_host_without_fsat_support()
+    test_cli_applies_natively_on_windows()
+    test_cli_surfaces_platform_error_on_host_without_fsat_support()
+    test_init_apply_creates_vault_on_native_windows()
+    test_init_apply_refused_before_mkdir_on_host_without_fsat_support()
     test_identity_change_detected_in_path_mode()
+    test_junction_swap_of_wiki_during_apply_fails_closed()
+    test_zero_inode_vault_identity_is_refused_on_native_windows()
     test_unportable_write_paths_rejected_on_every_platform()
     test_native_windows_bundle_and_workspace_config_load()
-    test_capability_predicates_are_false_on_nt()
+    test_capability_predicates_are_true_on_native_windows()
+    test_capability_predicates_are_false_on_host_without_fsat_support()
     test_crlf_page_hash_is_stable_across_read_paths()
     print("All windows-compat tests passed.")
 
