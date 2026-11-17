@@ -50,17 +50,20 @@ jobs:
           git diff --exit-code
           test -z "$(git status --porcelain=v1 --untracked-files=all)"
 
-  windows-smoke:
-    # The full suite exercises dirfd confinement, symlinks, fcntl, and bash —
-    # deliberately unsupported on native Windows.  This job runs the portable
-    # surface (schema/package/contract validation plus the Windows
-    # compatibility suite) as an explicit allowlist so a skip can never be
-    # mistaken for a pass.
-    name: windows-latest / Python 3.12 (portable surface)
+  windows:
+    # Native Windows runs the full hermetic suite (no WSL). The image has no
+    # GNU make, so the bash loops mirror the Makefile targets. fsat.fchmod is a
+    # no-op below Python 3.13 on Windows; the matrix covers both behaviors.
+    name: windows-latest / Python ${{ matrix.python }}
+    strategy:
+      fail-fast: false
+      matrix:
+        python: ['3.11', '3.12', '3.13', '3.14']
     runs-on: windows-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     env:
       PYTHONDONTWRITEBYTECODE: '1'
+      PYTHON: python
     defaults:
       run:
         shell: bash
@@ -78,28 +81,34 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.3.0
         with:
-          python-version: '3.12'
+          python-version: ${{ matrix.python }}
 
       - name: Show runtime versions
-        run: python --version
+        run: |
+          python --version
+          bash --version | head -1
 
-      - name: Run portable-surface tests
+      - name: Run Python suites
         run: |
           set -eu
-          for test_file in \
-            tests/test_package_validation.py \
-            tests/test_knowledge_contracts.py \
-            tests/test_contracts.py \
-            tests/test_ollama.py \
-            tests/test_windows_compat.py; do
+          for test_file in tests/test_*.py; do
             echo "=== $test_file ==="
             python "$test_file"
           done
 
-      - name: Run portable validators
+      - name: Run shell suites
         run: |
-          python scripts/claude-obsidian.py package validate
+          set -eu
+          for test_file in tests/test_*.sh; do
+            echo "=== $test_file ==="
+            bash "$test_file"
+          done
+
+      - name: Run executable contracts and package validation
+        run: |
           python scripts/claude-obsidian.py contracts --check-only
+          python scripts/claude-obsidian.py contracts --verify
+          python scripts/claude-obsidian.py package validate
 
       - name: Prove tests did not mutate or create product files
         run: |
