@@ -7,6 +7,8 @@ implementation record for older releases.
 
 ## [Unreleased]
 
+## [3.1.0] - 2026-11-17
+
 ### Added
 
 - Native Windows support: vault writes, locks, the capture queue, and

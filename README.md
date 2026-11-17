@@ -29,7 +29,7 @@
   <a href="https://code.claude.com/docs/en/plugins"><img src="https://img.shields.io/badge/Claude%20Code-plugin-7c3aed" alt="Claude Code plugin" /></a>
   <a href="https://agentskills.io"><img src="https://img.shields.io/badge/Agent%20Skills-compatible-2563eb" alt="Agent Skills compatible" /></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT" /></a>
-  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/release-v3.0.1-d97745" alt="Release v3.0.1" /></a>
+  <a href="CHANGELOG.md"><img src="https://img.shields.io/badge/release-v3.1.0-d97745" alt="Release v3.1.0" /></a>
   <a href="https://github.com/AgriciDaniel/claude-obsidian/stargazers"><img src="https://img.shields.io/github/stars/AgriciDaniel/claude-obsidian?style=flat" alt="GitHub stars" /></a>
   <a href="https://www.skool.com/ai-marketing-hub-pro"><img src="https://img.shields.io/badge/AI%20Marketing%20Hub-Pro%20community-purple" alt="AI Marketing Hub Pro community" /></a>
 </p>
