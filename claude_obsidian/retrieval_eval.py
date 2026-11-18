@@ -207,7 +207,7 @@ def _execute_query(vault: Path, query: str, product_root: Path, depth: int) -> t
                "--top", str(depth), "--bm25-top", str(depth), "--no-rerank", "--explain", "--", query]
     started = time.perf_counter()
     try:
-        completed = subprocess.run(command, cwd=product_root, env=env, capture_output=True, text=True, timeout=30)
+        completed = subprocess.run(command, cwd=product_root, env=env, capture_output=True, text=True, encoding="utf-8", timeout=30)
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise EvaluationError(f"offline retrieval could not finish within its process budget: {exc}") from exc
     elapsed = (time.perf_counter() - started) * 1000
@@ -343,7 +343,7 @@ def provision_fixture(destination: Path | str, product_root: Path | str) -> Path
     ):
         completed = subprocess.run(
             [sys.executable, str(product / "scripts" / script), "--vault", str(root), *arguments],
-            cwd=product, env=environment, capture_output=True, text=True, timeout=30,
+            cwd=product, env=environment, capture_output=True, text=True, encoding="utf-8", timeout=30,
         )
         if completed.returncode:
             raise EvaluationError(f"fixture provisioning failed in {script}: {completed.stderr[-2000:]}")

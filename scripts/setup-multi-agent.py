@@ -187,4 +187,7 @@ def main(argv: list[str]) -> int:
 
 
 if __name__ == "__main__":
+    from claude_obsidian.hook_adapter import force_utf8_stdio
+
+    force_utf8_stdio()
     raise SystemExit(main(sys.argv[1:]))

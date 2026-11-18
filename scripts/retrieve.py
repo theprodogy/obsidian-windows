@@ -373,4 +373,7 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
+    from claude_obsidian.hook_adapter import force_utf8_stdio
+
+    force_utf8_stdio()
     sys.exit(main())
