@@ -456,7 +456,7 @@ def test_cli_route_mode_override_previews_without_writing():
         before = subprocess.run(
             [sys.executable, str(HELPER), "--vault", str(vault), "get"],
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             timeout=5,
         ).stdout.strip()
         result = subprocess.run(
@@ -472,7 +472,7 @@ def test_cli_route_mode_override_previews_without_writing():
                 "Preview Test",
             ],
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             timeout=5,
         )
         assert_eq("cli route --mode rc=0", 0, result.returncode)
@@ -483,7 +483,7 @@ def test_cli_route_mode_override_previews_without_writing():
         after = subprocess.run(
             [sys.executable, str(HELPER), "--vault", str(vault), "get"],
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             timeout=5,
         ).stdout.strip()
         assert_eq("current mode unchanged by preview", before, after)
@@ -506,7 +506,7 @@ def test_cli_route_mode_override_rejects_invalid():
                 "X",
             ],
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             timeout=5,
         )
         assert_true(
@@ -535,7 +535,7 @@ def test_cli_get_returns_mode():
         result = subprocess.run(
             [sys.executable, str(HELPER), "--vault", str(vault), "get"],
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             timeout=5,
         )
         assert_eq("cli get rc=0", 0, result.returncode)
@@ -557,7 +557,7 @@ def test_cli_get_rejects_existing_corrupt_config():
         result = subprocess.run(
             [sys.executable, str(HELPER), "--vault", str(vault), "get"],
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             timeout=5,
         )
         assert_eq("cli corrupt config rc=5", 5, result.returncode)
@@ -577,7 +577,7 @@ def test_cli_id_returns_timestamp():
         result = subprocess.run(
             [sys.executable, str(HELPER), "--vault", str(vault), "id"],
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             timeout=5,
         )
         assert_eq("cli id rc=0", 0, result.returncode)
@@ -605,7 +605,7 @@ def test_cli_route_returns_path():
                 "Test Source",
             ],
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             timeout=5,
         )
         assert_eq("cli route rc=0", 0, result.returncode)
@@ -621,7 +621,7 @@ def test_cli_set_is_unavailable():
     result = subprocess.run(
         [sys.executable, str(HELPER), "set", "bogus"],
         capture_output=True,
-        text=True,
+        text=True, encoding="utf-8",
         timeout=5,
     )
     assert_true(
@@ -639,7 +639,7 @@ def test_cli_templates_lists_six():
         result = subprocess.run(
             [sys.executable, str(HELPER), "--vault", str(vault), "templates"],
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             timeout=5,
         )
         assert_eq("cli templates rc=0", 0, result.returncode)
@@ -729,7 +729,7 @@ def test_route_rejection_exit_codes_reach_the_command_line():
         for page_type, expected in (("overview", 6), ("garbage", 4)):
             done = subprocess.run(
                 [sys.executable, str(HELPER), "route", page_type, "x", "--vault", str(vault)],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True, text=True, encoding="utf-8", timeout=10,
             )
             assert_eq(f"`route {page_type}` exit code", expected, done.returncode)
 
@@ -806,7 +806,7 @@ def test_legacy_mode_json_on_disk_routes_through_both_callers():
 
         routed = subprocess.run(
             [sys.executable, str(HELPER), "route", "question", "x", "--vault", str(vault)],
-            capture_output=True, text=True, timeout=10,
+            capture_output=True, text=True, encoding="utf-8", timeout=10,
         )
         assert_eq("legacy mode.json routes question", 0, routed.returncode)
         assert_eq(
@@ -818,7 +818,7 @@ def test_legacy_mode_json_on_disk_routes_through_both_callers():
         core = subprocess.run(
             [sys.executable, str(ROOT / "scripts" / "claude-obsidian.py"),
              "mode", "get", "--vault", str(vault)],
-            capture_output=True, text=True, timeout=15,
+            capture_output=True, text=True, encoding="utf-8", timeout=15,
         )
         assert_eq("legacy mode.json loads through the core CLI", 0, core.returncode)
 

@@ -531,7 +531,7 @@ def test_historical_synthetic_collision_paths_remain_distinct() -> None:
                 "--no-llm",
             ],
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             timeout=20,
             check=False,
         )
@@ -581,7 +581,7 @@ def test_decomposed_unicode_page_is_chunked_and_indexed() -> None:
         ]
         for command in commands:
             result = subprocess.run(
-                command, capture_output=True, text=True, timeout=30, check=False
+                command, capture_output=True, text=True, encoding="utf-8", timeout=30, check=False
             )
             assert_eq(
                 f"{Path(command[1]).name} {command[-1]} succeeds",
@@ -622,7 +622,7 @@ def test_duplicate_explicit_address_fails_before_any_write() -> None:
                 "--no-llm",
             ],
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             timeout=20,
             check=False,
         )
@@ -670,7 +670,7 @@ def test_symlinked_chunk_address_never_writes_or_deletes_outside() -> None:
                 "--no-llm",
             ],
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             timeout=20,
             check=False,
         )
@@ -709,7 +709,7 @@ def test_explicit_page_symlink_is_rejected_without_replacing_real_chunks() -> No
                 "--no-llm",
             ],
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             timeout=20,
             check=False,
         )
@@ -745,7 +745,7 @@ def test_prefix_generation_refuses_shared_vault_writer_lock() -> None:
                     "--no-llm",
                 ],
                 capture_output=True,
-                text=True,
+                text=True, encoding="utf-8",
                 timeout=20,
                 check=False,
             )
@@ -1372,13 +1372,13 @@ def test_invalid_utf8_aborts_selection_before_provider_or_cache_work():
 
 
 def _ready_retrieval(vault):
-    built = subprocess.run([sys.executable, str(ROOT / "scripts/bm25-index.py"), "--vault", str(vault), "build"], capture_output=True, text=True, timeout=20)
+    built = subprocess.run([sys.executable, str(ROOT / "scripts/bm25-index.py"), "--vault", str(vault), "build"], capture_output=True, text=True, encoding="utf-8", timeout=20)
     assert_eq("fixture index build succeeds", 0, built.returncode)
     _assert_retrieval_ready(vault)
 
 
 def _assert_retrieval_ready(vault):
-    queried = subprocess.run([sys.executable, str(ROOT / "scripts/retrieve.py"), "--vault", str(vault), "--no-rerank", "Example"], capture_output=True, text=True, timeout=20)
+    queried = subprocess.run([sys.executable, str(ROOT / "scripts/retrieve.py"), "--vault", str(vault), "--no-rerank", "Example"], capture_output=True, text=True, encoding="utf-8", timeout=20)
     assert_eq("actual retrieval remains ready", 0, queried.returncode)
     assert_true("actual retrieval has candidates", bool(json.loads(queried.stdout)["candidates"]))
 
@@ -1714,7 +1714,7 @@ def test_cli_provider_budget_limits_require_positive_bounded_integers():
         result = subprocess.run(
             [sys.executable, str(HELPER), flag, value, "--peek"],
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             timeout=20,
             check=False,
         )

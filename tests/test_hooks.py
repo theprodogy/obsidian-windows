@@ -74,7 +74,7 @@ def test_fork_dispatch_keeps_session_context_explicit_and_read_only() -> None:
             env["CLAUDE_OBSIDIAN_VAULT"] = str(vault)
             if enabled:
                 env["CLAUDE_OBSIDIAN_SESSION_CONTEXT"] = "1"
-            result = subprocess.run(command, cwd=vault, env=env, input=json.dumps({"hook_event_name": "SessionStart", "source": "fork", "cwd": str(vault)}), capture_output=True, text=True, timeout=10)
+            result = subprocess.run(command, cwd=vault, env=env, input=json.dumps({"hook_event_name": "SessionStart", "source": "fork", "cwd": str(vault)}), capture_output=True, text=True, encoding="utf-8", timeout=10)
             assert result.returncode == 0, result.stderr
             if enabled:
                 assert "FORK_CONTEXT_SENTINEL" in result.stdout
@@ -520,7 +520,7 @@ def test_session_context_fifo_hot_cache_never_blocks() -> None:
         try:
             result = subprocess.run(
                 [sys.executable, str(ROOT / "scripts/claude-obsidian.py"), "hook", "session-start"],
-                cwd=vault, env=_hook_env(vault), capture_output=True, text=True, timeout=20,
+                cwd=vault, env=_hook_env(vault), capture_output=True, text=True, encoding="utf-8", timeout=20,
             )
         except subprocess.TimeoutExpired as exc:
             raise AssertionError("SessionStart blocked on a FIFO hot cache") from exc
@@ -543,7 +543,7 @@ def test_hook_dispatch_avoids_full_cli_imports() -> None:
         for event in ("session-start", "stop"):
             result = subprocess.run(
                 [sys.executable, "-c", probe, event],
-                cwd=td, env=env, text=True, capture_output=True, check=True,
+                cwd=td, env=env, text=True, encoding="utf-8", capture_output=True, check=True,
             )
             imported = json.loads(result.stdout)
             assert "claude_obsidian.cli" not in imported, imported
@@ -552,7 +552,7 @@ def test_hook_dispatch_avoids_full_cli_imports() -> None:
                 assert "claude_obsidian.hook_adapter" not in imported, imported
     result = subprocess.run(
         [sys.executable, "-c", "import claude_obsidian.hook_adapter, sys; assert 'claude_obsidian.transaction' not in sys.modules"],
-        cwd=ROOT, env=env, text=True, capture_output=True,
+        cwd=ROOT, env=env, text=True, encoding="utf-8", capture_output=True,
     )
     assert result.returncode == 0, result.stderr
 

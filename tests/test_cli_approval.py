@@ -27,7 +27,7 @@ class CliApprovalTests(unittest.TestCase):
         return subprocess.run(
             [sys.executable, str(CLI), *arguments],
             cwd=ROOT,
-            text=True,
+            text=True, encoding="utf-8",
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             check=False,

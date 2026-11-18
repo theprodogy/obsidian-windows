@@ -21,7 +21,7 @@ from claude_obsidian.transaction import BUNDLE_SCHEMA, MutationLock, apply_bundl
 
 def git(root: Path, *args: str) -> str:
     return subprocess.run(
-        ["git", *args], cwd=root, check=True, capture_output=True, text=True
+        ["git", *args], cwd=root, check=True, capture_output=True, text=True, encoding="utf-8"
     ).stdout.strip()
 
 

@@ -459,7 +459,7 @@ def test_token_growth_limit_rejects_oversized_manual_chunk_without_traceback():
         result = subprocess.run(
             [sys.executable, str(HELPER), "--vault", str(sandbox), "build"],
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             timeout=10,
             check=False,
         )
@@ -491,7 +491,7 @@ def test_token_growth_limit_rejects_oversized_manual_chunk_without_traceback():
                 "a" * (bm25.MAX_TOKEN_INPUT_CHARS + 1),
             ],
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             timeout=10,
             check=False,
         )
@@ -509,7 +509,7 @@ def test_cli_top_is_positive_and_bounded():
         result = subprocess.run(
             [sys.executable, str(HELPER), "query", "memory", "--top", value],
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             timeout=10,
             check=False,
         )
@@ -742,7 +742,7 @@ def test_cli_build_refuses_shared_vault_writer_lock():
             result = subprocess.run(
                 [sys.executable, str(HELPER), "--vault", str(root), "build"],
                 capture_output=True,
-                text=True,
+                text=True, encoding="utf-8",
                 timeout=10,
                 check=False,
             )

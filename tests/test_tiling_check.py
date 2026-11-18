@@ -513,7 +513,7 @@ def test_threshold_validation_precedes_provider_and_cache():
         result = subprocess.run(
             [sys.executable, str(HELPER), "--vault", str(vault)],
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             timeout=10,
             check=False,
         )
@@ -551,7 +551,7 @@ def test_url_guard_via_subprocess():
             [sys.executable, str(HELPER), "--vault", str(vault), "--peek"],
             env=env,
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             timeout=10,
         )
         assert_eq("remote URL without flag exit", 2, result.returncode)
@@ -570,7 +570,7 @@ def test_url_guard_via_subprocess():
                 ],
                 env=env,
                 capture_output=True,
-                text=True,
+                text=True, encoding="utf-8",
                 timeout=10,
             )
             assert_eq("invalid URL rejected with remote opt-in", 2, result.returncode)

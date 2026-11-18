@@ -33,7 +33,7 @@ def _run(*arguments: str, cwd: Path | None = None, env: dict[str, str] | None = 
         cwd=cwd or ROOT,
         env=merged,
         capture_output=True,
-        text=True,
+        text=True, encoding="utf-8",
         timeout=15,
         check=False,
     )

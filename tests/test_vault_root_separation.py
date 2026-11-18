@@ -39,7 +39,7 @@ def _run_python(
         cwd=cwd,
         env=env or _environment(),
         capture_output=True,
-        text=True,
+        text=True, encoding="utf-8",
         timeout=20,
         check=False,
     )
@@ -64,7 +64,7 @@ def _set_mode(vault: Path, mode: str, *, cwd: Path) -> subprocess.CompletedProce
         cwd=cwd,
         env=_environment(),
         capture_output=True,
-        text=True,
+        text=True, encoding="utf-8",
         timeout=20,
         check=False,
     )
@@ -76,7 +76,7 @@ def _set_mode(vault: Path, mode: str, *, cwd: Path) -> subprocess.CompletedProce
         cwd=cwd,
         env=_environment(),
         capture_output=True,
-        text=True,
+        text=True, encoding="utf-8",
         timeout=20,
         check=False,
     )
@@ -92,7 +92,7 @@ def _run_allocator(
         cwd=cwd,
         env=env or _environment(),
         capture_output=True,
-        text=True,
+        text=True, encoding="utf-8",
         timeout=20,
         check=False,
     )

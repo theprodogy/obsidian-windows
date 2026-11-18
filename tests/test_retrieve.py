@@ -202,7 +202,7 @@ def test_retrieval_top_arguments_are_positive_and_bounded():
             [sys.executable, str(script), *arguments],
             input="[]" if script == RERANK else None,
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             timeout=10,
             check=False,
         )
@@ -1017,7 +1017,7 @@ def test_retrieve_exits_10_without_index():
             ],
             env=sandbox_env(ROOT),
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             timeout=10,
         )
         assert_eq("retrieve.py exit 10 when not provisioned", 10, result.returncode)
@@ -1165,7 +1165,7 @@ def test_retrieve_translates_corrupt_index_to_documented_fallback_exit():
             ],
             env=sandbox_env(sandbox),
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             timeout=10,
         )
         assert_eq("corrupt index maps to retrieve exit 10", 10, result.returncode)
@@ -1252,7 +1252,7 @@ def test_end_to_end_with_synthetic_chunks():
             ],
             env=sandbox_env(sandbox),
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             timeout=10,
         )
         assert_eq("bm25 build rc=0", 0, result.returncode)
@@ -1270,7 +1270,7 @@ def test_end_to_end_with_synthetic_chunks():
             ],
             env=sandbox_env(sandbox),
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             timeout=10,
         )
         assert_eq("retrieve rc=0", 0, result.returncode)
@@ -1326,7 +1326,7 @@ def test_dedupe_happens_before_final_top_k():
             ],
             env=sandbox_env(sandbox),
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             timeout=10,
             check=True,
         )
@@ -1345,7 +1345,7 @@ def test_dedupe_happens_before_final_top_k():
             ],
             env=sandbox_env(sandbox),
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             timeout=10,
             check=True,
         )
@@ -1390,7 +1390,7 @@ def test_retrieve_skips_page_deleted_after_index_build():
             ],
             env=sandbox_env(sandbox),
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             timeout=10,
             check=True,
         )
@@ -1407,7 +1407,7 @@ def test_retrieve_skips_page_deleted_after_index_build():
             ],
             env=sandbox_env(sandbox),
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             timeout=10,
             check=True,
         )
@@ -1549,7 +1549,7 @@ def test_explain_flag_adds_diagnostics_block():
             ],
             env=sandbox_env(sandbox),
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             timeout=10,
         )
         assert_eq("retrieve --explain --no-rerank rc=0", 0, result.returncode)
@@ -1625,7 +1625,7 @@ def test_no_rerank_flag_strategy_bm25_only():
             ],
             env=sandbox_env(sandbox),
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             timeout=10,
         )
         assert_eq("retrieve --no-rerank rc=0", 0, result.returncode)
@@ -1701,10 +1701,10 @@ def test_retrieve_keeps_healthy_hits_when_one_chunk_is_corrupt():
             if first is None:
                 first = chunk
         env = sandbox_env(root)
-        build = subprocess.run([sys.executable, str(BM25), "--vault", str(root), "build"], env=env, capture_output=True, text=True, timeout=10)
+        build = subprocess.run([sys.executable, str(BM25), "--vault", str(root), "build"], env=env, capture_output=True, text=True, encoding="utf-8", timeout=10)
         assert_eq("corruption fixture index build", 0, build.returncode)
         command = [sys.executable, str(RETRIEVE), "--vault", str(root), "verification harbor", "--no-rerank", "--explain"]
-        healthy = subprocess.run(command, env=env, capture_output=True, text=True, timeout=10)
+        healthy = subprocess.run(command, env=env, capture_output=True, text=True, encoding="utf-8", timeout=10)
         assert_eq("healthy corruption fixture retrieval", 0, healthy.returncode)
         assert_eq("both fixture pages are actually indexed", 2, len(json.loads(healthy.stdout)["candidates"]))
         variants = {
@@ -1722,7 +1722,7 @@ def test_retrieve_keeps_healthy_hits_when_one_chunk_is_corrupt():
                 page_bytes = page_bytes.replace(b"\xef\xbf\xbd", b"\xff")
             page.write_bytes(page_bytes)
             before = {p.relative_to(root).as_posix(): p.read_bytes() for p in root.rglob("*") if p.is_file()}
-            result = subprocess.run(command, env=env, capture_output=True, text=True, timeout=10)
+            result = subprocess.run(command, env=env, capture_output=True, text=True, encoding="utf-8", timeout=10)
             assert_eq(f"{name} retrieval remains available", 0, result.returncode)
             assert_true(f"{name} emits no traceback", "Traceback" not in result.stderr, result.stderr)
             value = json.loads(result.stdout)
@@ -1778,7 +1778,7 @@ def _retrieve_with_fake(sandbox, server_url):
          "--top", "1", "--model", FAKE_MODEL],
         env=env,
         capture_output=True,
-        text=True,
+        text=True, encoding="utf-8",
         timeout=30,
     )
 

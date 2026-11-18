@@ -131,7 +131,7 @@ class LabelSafetyTests(unittest.TestCase):
             query_file = labels(root / "queries.json", [])
             result = subprocess.run(
                 [sys.executable, str(ROOT / "scripts/evaluate-retrieval.py"), "--vault", str(root), "--queries", str(query_file)],
-                capture_output=True, text=True, timeout=10,
+                capture_output=True, text=True, encoding="utf-8", timeout=10,
             )
             self.assertEqual(result.returncode, 10, result.stderr)
             self.assertIn("RETRIEVAL_INDEX_UNAVAILABLE", result.stderr)

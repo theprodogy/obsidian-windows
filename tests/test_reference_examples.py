@@ -154,7 +154,7 @@ class ReferenceExampleTests(unittest.TestCase):
                 else "https://example.com/reference" if token == "HTTPS_URL" else token
                 for token in plans[0][1:]]
         result = subprocess.run([sys.executable, *argv], cwd=ROOT, check=True,
-                                capture_output=True, text=True)
+                                capture_output=True, text=True, encoding="utf-8")
         plan = json.loads(result.stdout)
         self.assertFalse(plan["execute"])
         self.assertTrue(all(command[0] == "python3" for command in commands))

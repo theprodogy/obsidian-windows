@@ -374,7 +374,7 @@ class WorkflowTests(unittest.TestCase):
         run = subprocess.run(
             [sys.executable, '-B', str(ROOT / 'scripts/claude-obsidian.py'),
              'workflow', 'inspect', str(source), '--vault', str(self.vault)],
-            text=True, capture_output=True, cwd=self.temporary.name, timeout=20,
+            text=True, encoding="utf-8", capture_output=True, cwd=self.temporary.name, timeout=20,
         )
         self.assertEqual(2, run.returncode, run.stderr)
         self.assertIn('ERR WORKFLOW_LOG_NOT_TEXT:', run.stderr)
@@ -442,7 +442,7 @@ class WorkflowTests(unittest.TestCase):
                     [sys.executable, '-B', str(ROOT / 'scripts/claude-obsidian.py'),
                      'workflow', 'apply', str(source), '--vault', str(self.vault),
                      '--approved-plan-sha256', approval],
-                    text=True, capture_output=True, cwd=self.temporary.name, timeout=20,
+                    text=True, encoding="utf-8", capture_output=True, cwd=self.temporary.name, timeout=20,
                 )
                 self.assertEqual(3, run.returncode, run.stderr)
                 self.assertIn('ERR CORRUPT_RESULT:', run.stderr)
@@ -470,7 +470,7 @@ class WorkflowTests(unittest.TestCase):
             [sys.executable, '-B', str(ROOT / 'scripts/claude-obsidian.py'),
              'workflow', 'apply', str(source), '--vault', str(self.vault),
              '--approved-plan-sha256', approval],
-            text=True, capture_output=True, cwd=self.temporary.name, timeout=20,
+            text=True, encoding="utf-8", capture_output=True, cwd=self.temporary.name, timeout=20,
         )
         self.assertEqual(2, run.returncode, run.stderr)
         self.assertIn('ERR INVALID_WRITE:', run.stderr)
@@ -714,9 +714,9 @@ class WorkflowTests(unittest.TestCase):
         vault = Path(self.temporary.name) / 'seeded'
         command = [sys.executable, '-B', str(ROOT / 'scripts/claude-obsidian.py'), 'init', str(vault),
                    '--operation-id', 'init-seed', '--generated-at', '2026-10-18T00:00:00Z']
-        plan = json.loads(subprocess.run(command, capture_output=True, text=True, check=True, timeout=60).stdout)
+        plan = json.loads(subprocess.run(command, capture_output=True, text=True, encoding="utf-8", check=True, timeout=60).stdout)
         subprocess.run(command + ['--apply', '--approved-plan-sha256', plan['approved_plan_sha256']],
-                       capture_output=True, text=True, check=True, timeout=60)
+                       capture_output=True, text=True, encoding="utf-8", check=True, timeout=60)
         return vault
 
     def seeded_save(self, vault, log, *, operation_id='seeded-save', hot_body='\nSaved Example.\n'):
@@ -775,7 +775,7 @@ class WorkflowTests(unittest.TestCase):
         path.write_text(json.dumps(bundle), newline='\n')
         for command in ('transaction', 'workflow'):
             run = subprocess.run([sys.executable, '-B', str(ROOT / 'scripts/claude-obsidian.py'), command, 'inspect',
-                                  str(path), '--vault', str(self.vault)], capture_output=True, text=True, timeout=30)
+                                  str(path), '--vault', str(self.vault)], capture_output=True, text=True, encoding="utf-8", timeout=30)
             self.assertEqual(2, run.returncode, run.stderr)
             self.assertIn('ERR INVALID_WRITE_MODE:', run.stderr)
             self.assertNotIn('Traceback', run.stderr)
@@ -793,7 +793,7 @@ class WorkflowTests(unittest.TestCase):
         path.write_text(json.dumps(bundle), newline='\n')
         run = subprocess.run([sys.executable, '-B', str(ROOT / 'scripts/claude-obsidian.py'), 'workflow', 'apply',
                               str(path), '--vault', str(self.vault), '--approved-plan-sha256', approval],
-                             capture_output=True, text=True, timeout=30)
+                             capture_output=True, text=True, encoding="utf-8", timeout=30)
         self.assertEqual(75, run.returncode, run.stderr)
         self.assertIn('ERR OPERATION_ID_REUSED:', run.stderr)
 
@@ -919,7 +919,7 @@ class WorkflowTests(unittest.TestCase):
         def cli(*args):
             try:
                 return subprocess.run([sys.executable, '-B', str(ROOT / 'scripts/claude-obsidian.py'), *args],
-                                      capture_output=True, text=True, timeout=30)
+                                      capture_output=True, text=True, encoding="utf-8", timeout=30)
             except subprocess.TimeoutExpired as exc:
                 raise AssertionError(f'workflow command blocked: {args}') from exc
 

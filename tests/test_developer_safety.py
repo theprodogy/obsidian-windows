@@ -180,12 +180,12 @@ def interrupt(path, index):
         os._exit(91)
 apply_bundle(Path(sys.argv[1]), json.loads(sys.argv[2]), approved_plan_sha256=sys.argv[3], progress=interrupt)
 """
-            child = subprocess.run([sys.executable, "-B", "-c", program, str(vault), json.dumps(bundle), approval], cwd=ROOT, capture_output=True, text=True, timeout=15)
+            child = subprocess.run([sys.executable, "-B", "-c", program, str(vault), json.dumps(bundle), approval], cwd=ROOT, capture_output=True, text=True, encoding="utf-8", timeout=15)
             self.assertEqual(91, child.returncode, child.stderr)
             self.assertEqual("new A\n", (vault / "wiki/A.md").read_text())
             self.assertEqual("old B\n", (vault / "wiki/B.md").read_text())
             before = snapshot(vault)
-            cleanup = subprocess.run(["make", "-f", str(ROOT / "Makefile"), "clean-test-state"], cwd=vault, capture_output=True, text=True, timeout=10)
+            cleanup = subprocess.run(["make", "-f", str(ROOT / "Makefile"), "clean-test-state"], cwd=vault, capture_output=True, text=True, encoding="utf-8", timeout=10)
             self.assertNotEqual(0, cleanup.returncode)
             self.assertEqual(before, snapshot(vault))
             with MutationLock(vault, timeout=2, force_stale_lock=True) as lock:

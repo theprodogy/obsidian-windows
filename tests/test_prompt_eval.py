@@ -417,7 +417,7 @@ class PromptEvaluationTests(unittest.TestCase):
             [sys.executable, str(SCRIPT), "--help"],
             cwd=ROOT,
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             timeout=10,
             check=False,
         )
@@ -432,7 +432,7 @@ class PromptEvaluationTests(unittest.TestCase):
                 [sys.executable, str(SCRIPT), "packet"],
                 cwd=ROOT,
                 capture_output=True,
-                text=True,
+                text=True, encoding="utf-8",
                 timeout=10,
                 check=False,
             )
@@ -447,7 +447,7 @@ class PromptEvaluationTests(unittest.TestCase):
                 [sys.executable, str(SCRIPT), "evaluate", str(response_path), "--packet", str(packet_path)],
                 cwd=ROOT,
                 capture_output=True,
-                text=True,
+                text=True, encoding="utf-8",
                 timeout=10,
                 check=False,
             )
@@ -460,7 +460,7 @@ class PromptEvaluationTests(unittest.TestCase):
                 [sys.executable, str(SCRIPT), "evaluate", str(response_path), "--packet", str(packet_path)],
                 cwd=ROOT,
                 capture_output=True,
-                text=True,
+                text=True, encoding="utf-8",
                 timeout=10,
                 check=False,
             )
@@ -472,7 +472,7 @@ class PromptEvaluationTests(unittest.TestCase):
                 [sys.executable, str(SCRIPT), "evaluate", str(response_path)],
                 cwd=ROOT,
                 capture_output=True,
-                text=True,
+                text=True, encoding="utf-8",
                 timeout=10,
                 check=False,
             )
@@ -486,7 +486,7 @@ class PromptEvaluationTests(unittest.TestCase):
                 [sys.executable, str(SCRIPT), "evaluate", str(response_path)],
                 cwd=ROOT,
                 capture_output=True,
-                text=True,
+                text=True, encoding="utf-8",
                 timeout=10,
                 check=False,
             )

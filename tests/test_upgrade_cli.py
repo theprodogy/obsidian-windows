@@ -23,7 +23,7 @@ class UpgradeCliTests(unittest.TestCase):
 
     def run_cli(self, *args):
         return subprocess.run([sys.executable, '-B', str(ROOT / 'scripts/claude-obsidian.py'), *args],
-                              text=True, capture_output=True, cwd=self.base, timeout=20)
+                              text=True, encoding="utf-8", capture_output=True, cwd=self.base, timeout=20)
 
     def test_capacity_has_readonly_status_and_both_vault_argument_positions(self):
         run = self.run_cli('capacity', '--vault', str(self.vault))

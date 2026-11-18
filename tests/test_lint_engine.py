@@ -437,7 +437,7 @@ tags:
             [sys.executable, str(ENGINE_PATH), str(FIXTURE), "--format", "json"],
             check=True,
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             timeout=10,
         )
         self.assertEqual(self.report, json.loads(completed.stdout))
@@ -749,7 +749,7 @@ tags:
                 completed = subprocess.run(
                     command,
                     capture_output=True,
-                    text=True,
+                    text=True, encoding="utf-8",
                     timeout=10,
                     check=False,
                 )
@@ -1867,7 +1867,7 @@ class WalkScopeTests(unittest.TestCase):
                     "wiki/scratchpad/*",
                 ],
                 capture_output=True,
-                text=True,
+                text=True, encoding="utf-8",
                 timeout=10,
                 check=False,
             )

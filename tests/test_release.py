@@ -160,7 +160,7 @@ class ReleaseRepo(unittest.TestCase):
             ["git", "-C", str(self.repo), *arguments],
             check=True,
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             timeout=10,
         )
         return completed.stdout
@@ -530,7 +530,7 @@ class BuildTests(ReleaseRepo):
             ["git", "-C", str(other), "rev-parse", "HEAD"],
             check=True,
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
         ).stdout.strip()
         self.assertNotEqual(expected, foreign)
 

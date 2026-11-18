@@ -1220,7 +1220,7 @@ def test_cli_capture_uses_one_recoverable_binary_transaction() -> None:
             "2026-07-11T12:00:00Z",
             "inbox/payload.pdf",
         ]
-        planned = subprocess.run(common, capture_output=True, text=True, check=False)
+        planned = subprocess.run(common, capture_output=True, text=True, encoding="utf-8", check=False)
         assert planned.returncode == 0, planned.stderr
         plan = json.loads(planned.stdout)
         assert plan["status"] == "dry-run"
@@ -1235,7 +1235,7 @@ def test_cli_capture_uses_one_recoverable_binary_transaction() -> None:
                 "--apply",
             ],
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             check=False,
         )
         assert applied.returncode == 0, applied.stderr

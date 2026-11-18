@@ -248,7 +248,7 @@ def test_cli_page_no_match():
                 "definitely-not-a-real-page-xyz",
             ],
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             timeout=5,
         )
         assert_eq("--page no-match exit", 2, result.returncode)
@@ -282,7 +282,7 @@ def test_cli_top_zero_usage_error():
     result = subprocess.run(
         [sys.executable, str(HELPER), "--top", "0"],
         capture_output=True,
-        text=True,
+        text=True, encoding="utf-8",
         timeout=5,
     )
     assert_eq("--top 0 exit", 2, result.returncode)
@@ -303,7 +303,7 @@ def test_cli_json_structure():
                 "1",
             ],
             capture_output=True,
-            text=True,
+            text=True, encoding="utf-8",
             timeout=10,
         )
         assert_eq("--json exit 0", 0, result.returncode)

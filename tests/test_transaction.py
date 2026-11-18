@@ -3516,7 +3516,7 @@ def _run_bounded(program: str, *args: str) -> subprocess.CompletedProcess:
     try:
         return subprocess.run(
             [sys.executable, "-B", "-c", program, *args],
-            cwd=ROOT, capture_output=True, text=True, timeout=30,
+            cwd=ROOT, capture_output=True, text=True, encoding="utf-8", timeout=30,
         )
     except subprocess.TimeoutExpired as exc:
         raise AssertionError(f"probe blocked: {program[:200]}") from exc

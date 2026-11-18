@@ -31,7 +31,7 @@ class SetupMultiAgentTests(unittest.TestCase):
             [*LAUNCH, *arguments],
             cwd=ROOT,
             env=environment,
-            text=True,
+            text=True, encoding="utf-8",
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             check=False,
