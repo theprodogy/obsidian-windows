@@ -133,7 +133,7 @@ class DetectTransportTests(unittest.TestCase):
                     str(binary), str(vault), timeout=0.5
                 )
             self.assertLess(time.monotonic() - started, 10)
-            pid = int(pid_file.read_text().strip())
+            pid = int(pid_file.read_text(encoding="utf-8").strip())
         self.assertFalse(ok)
         self.assertIn("filesystem fallback", reason)
         with self.assertRaises(ProcessLookupError):

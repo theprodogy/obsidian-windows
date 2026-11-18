@@ -37,11 +37,11 @@ def test_init_and_adopt_are_non_destructive() -> None:
         assert (vault / "inbox/.gitkeep").is_file()
         assert ".vault-meta/" in (vault / ".gitignore").read_text(encoding="utf-8")
         assert scan_vault(vault)["workspace_config"]
-        assert "created: 2026-07-11" in (vault / "wiki/index.md").read_text()
-        assert "{{generated_date}}" not in (vault / "wiki/index.md").read_text()
+        assert "created: 2026-07-11" in (vault / "wiki/index.md").read_text(encoding="utf-8")
+        assert "{{generated_date}}" not in (vault / "wiki/index.md").read_text(encoding="utf-8")
 
         custom = vault / ".obsidian/app.json"
-        custom.write_text('{"custom": true}\n')
+        custom.write_text('{"custom": true}\n', encoding="utf-8")
         adopt = build_vault_bundle(
             vault,
             operation_id="adopt",
@@ -50,14 +50,14 @@ def test_init_and_adopt_are_non_destructive() -> None:
             adopt=True,
         )
         assert ".obsidian/app.json" not in [write["path"] for write in adopt["writes"]]
-        assert custom.read_text() == '{"custom": true}\n'
+        assert custom.read_text(encoding="utf-8") == '{"custom": true}\n'
 
 
 def test_init_refuses_existing_content_without_force() -> None:
     with tempfile.TemporaryDirectory() as td:
         vault = Path(td) / "vault"
         (vault / ".obsidian").mkdir(parents=True)
-        (vault / ".obsidian/app.json").write_text("{}\n")
+        (vault / ".obsidian/app.json").write_text("{}\n", encoding="utf-8")
         try:
             build_vault_bundle(
                 vault,

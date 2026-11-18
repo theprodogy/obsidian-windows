@@ -171,7 +171,7 @@ class FixtureAcceptanceTests(unittest.TestCase):
         self.assertEqual(report["index_snapshot_sha256"], hashlib.sha256((self.vault / evaluation.INDEX_PATH).read_bytes()).hexdigest())
         self.assertGreater(report["latency_ms"]["p50"], 0)
         for chunk in (self.vault / ".vault-meta/chunks").rglob("chunk-*.json"):
-            self.assertEqual(json.loads(chunk.read_text())["prefix_source"], "synthetic")
+            self.assertEqual(json.loads(chunk.read_text(encoding="utf-8"))["prefix_source"], "synthetic")
 
     def test_empty_query_set_and_missing_gold_report_no_data(self) -> None:
         path = labels(self.root / "empty.json", [])

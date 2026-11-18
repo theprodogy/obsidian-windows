@@ -1230,16 +1230,19 @@ def test_end_to_end_with_synthetic_chunks():
         (chunks_dir / "c-000001").mkdir()
         (chunks_dir / "c-000002").mkdir()
         (pages_dir / "c-000001.md").write_text(
-            "compounding wiki vault pattern by karpathy"
+            "compounding wiki vault pattern by karpathy",
+            encoding="utf-8",
         )
-        (pages_dir / "c-000002.md").write_text("obsidian cli transport detection")
+        (pages_dir / "c-000002.md").write_text("obsidian cli transport detection", encoding="utf-8")
         (chunks_dir / "c-000001" / "chunk-000.json").write_text(
             json.dumps(
                 chunk("c-000001", 0, "compounding wiki vault pattern by karpathy")
-            )
+            ),
+            encoding="utf-8",
         )
         (chunks_dir / "c-000002" / "chunk-000.json").write_text(
-            json.dumps(chunk("c-000002", 0, "obsidian cli transport detection"))
+            json.dumps(chunk("c-000002", 0, "obsidian cli transport detection")),
+            encoding="utf-8",
         )
         # Product scripts operate on the separately selected sandbox vault.
         result = subprocess.run(
@@ -1295,7 +1298,7 @@ def test_dedupe_happens_before_final_top_k():
 
         page_bodies = {"c-000001": "page one", "c-000002": "page two"}
         for address, page_body in page_bodies.items():
-            (pages_dir / f"{address}.md").write_text(page_body)
+            (pages_dir / f"{address}.md").write_text(page_body, encoding="utf-8")
             (chunks_dir / address).mkdir()
 
         def write_chunk(address, index, text):
@@ -1310,7 +1313,8 @@ def test_dedupe_happens_before_final_top_k():
                 "page_body_hash": sha256_text(page_bodies[address]),
             }
             (chunks_dir / address / f"chunk-{index:03d}.json").write_text(
-                json.dumps(record)
+                json.dumps(record),
+                encoding="utf-8",
             )
 
         write_chunk("c-000001", 0, "alpha alpha alpha alpha")
@@ -1365,7 +1369,7 @@ def test_retrieve_skips_page_deleted_after_index_build():
         page = sandbox / "wiki" / "fake" / "c-000001.md"
         page.parent.mkdir(parents=True)
         page_text = "stale retrieval sentinel"
-        page.write_text(page_text)
+        page.write_text(page_text, encoding="utf-8")
         (chunks_dir / "chunk-000.json").write_text(
             json.dumps(
                 {
@@ -1378,7 +1382,8 @@ def test_retrieve_skips_page_deleted_after_index_build():
                     "body_hash": sha256_text(page_text),
                     "page_body_hash": sha256_text(page_text),
                 }
-            )
+            ),
+            encoding="utf-8",
         )
         subprocess.run(
             [
@@ -1501,7 +1506,7 @@ def test_explain_flag_adds_diagnostics_block():
         # 2 synthetic chunks
         (chunks_dir / "c-000010").mkdir()
         page_text = "hybrid retrieval pipeline"
-        (page_dir / "c-000010.md").write_text(page_text)
+        (page_dir / "c-000010.md").write_text(page_text, encoding="utf-8")
         (chunks_dir / "c-000010" / "chunk-000.json").write_text(
             json.dumps(
                 {
@@ -1518,7 +1523,8 @@ def test_explain_flag_adds_diagnostics_block():
                     "page_body_hash": sha256_text(page_text),
                     "created_at": "2026-05-17T00:00:00Z",
                 }
-            )
+            ),
+            encoding="utf-8",
         )
         # Build index
         subprocess.run(
@@ -1580,7 +1586,7 @@ def test_no_rerank_flag_strategy_bm25_only():
         page_dir.mkdir(parents=True)
         (chunks_dir / "c-000020").mkdir()
         page_text = "transport detection fallback chain"
-        (page_dir / "c-000020.md").write_text(page_text)
+        (page_dir / "c-000020.md").write_text(page_text, encoding="utf-8")
         (chunks_dir / "c-000020" / "chunk-000.json").write_text(
             json.dumps(
                 {
@@ -1597,7 +1603,8 @@ def test_no_rerank_flag_strategy_bm25_only():
                     "page_body_hash": sha256_text(page_text),
                     "created_at": "2026-05-17T00:00:00Z",
                 }
-            )
+            ),
+            encoding="utf-8",
         )
         subprocess.run(
             [
@@ -1742,7 +1749,7 @@ def _rerank_fixture(sandbox):
     page_dir = sandbox / "wiki" / "fake"
     page_dir.mkdir(parents=True)
     page_text = "transport detection fallback chain"
-    (page_dir / "c-000030.md").write_text(page_text)
+    (page_dir / "c-000030.md").write_text(page_text, encoding="utf-8")
     (chunks_dir / "chunk-000.json").write_text(
         json.dumps(
             {
@@ -1759,7 +1766,8 @@ def _rerank_fixture(sandbox):
                 "page_body_hash": sha256_text(page_text),
                 "created_at": "2026-05-17T00:00:00Z",
             }
-        )
+        ),
+        encoding="utf-8",
     )
     subprocess.run(
         [sys.executable, str(BM25), "--vault", str(sandbox), "build"],

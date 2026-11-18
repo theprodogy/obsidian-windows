@@ -71,19 +71,19 @@ class PackageValidationTests(unittest.TestCase):
                 root = Path(directory)
                 self.fixture(root, frontmatter="---\nname: sample\ndescription: Sample.\n---")
                 plugin_path = root / ".claude-plugin/plugin.json"
-                plugin = json.loads(plugin_path.read_text())
+                plugin = json.loads(plugin_path.read_text(encoding="utf-8"))
                 plugin["name"] = name
-                plugin_path.write_text(json.dumps(plugin))
+                plugin_path.write_text(json.dumps(plugin), encoding="utf-8")
                 marketplace_path = root / "config/public-marketplace.json"
-                marketplace = json.loads(marketplace_path.read_text())
+                marketplace = json.loads(marketplace_path.read_text(encoding="utf-8"))
                 marketplace["plugins"][0]["name"] = name
-                marketplace_path.write_text(json.dumps(marketplace))
+                marketplace_path.write_text(json.dumps(marketplace), encoding="utf-8")
                 codes = {item["code"] for item in validate_package(root)["findings"]}
                 self.assertIn("reserved_plugin_name", codes)
                 plugin["name"] = "claude-obsidian"
                 marketplace["plugins"][0]["name"] = plugin["name"]
-                plugin_path.write_text(json.dumps(plugin))
-                marketplace_path.write_text(json.dumps(marketplace))
+                plugin_path.write_text(json.dumps(plugin), encoding="utf-8")
+                marketplace_path.write_text(json.dumps(marketplace), encoding="utf-8")
                 self.assertTrue(validate_package(root)["ok"])
 
     def test_duplicate_package_authority_keys_are_rejected(self) -> None:
@@ -286,10 +286,10 @@ class PackageValidationTests(unittest.TestCase):
             root = Path(directory)
             self.fixture(root, frontmatter='---\nname: sample\ndescription: Sample.\n---')
             path = root / 'skills/sample/SKILL.md'
-            initial = path.read_text()
-            path.write_text(initial + '\n```bash\npython3 "$CORE" workflow apply "$BUNDLE" --vault "$VAULT"\n```\n')
+            initial = path.read_text(encoding="utf-8")
+            path.write_text(initial + '\n```bash\npython3 "$CORE" workflow apply "$BUNDLE" --vault "$VAULT"\n```\n', encoding="utf-8")
             self.assertIn('unapproved_apply_example', {x['code'] for x in validate_package(root)['findings']})
-            path.write_text(initial + '\n```bash\npython3 "$CORE" workflow apply "$BUNDLE" --vault "$VAULT" --approved-plan-sha256 "$HASH"\n```\n')
+            path.write_text(initial + '\n```bash\npython3 "$CORE" workflow apply "$BUNDLE" --vault "$VAULT" --approved-plan-sha256 "$HASH"\n```\n', encoding="utf-8")
             self.assertNotIn('unapproved_apply_example', {x['code'] for x in validate_package(root)['findings']})
 
     def test_marketplace_manifest_requires_a_distribution_clean_root(self) -> None:

@@ -274,7 +274,8 @@ def test_cache_schema():
                         "model": "m1",
                         "embeddings": {"a.md": {"hash": "h", "embedding": [1.0]}},
                     }
-                )
+                ),
+                encoding="utf-8",
             )
             c = tc.load_cache("m1", DIGEST)
             assert_eq("valid legacy cache is a miss", 0, len(c["embeddings"]))
@@ -287,7 +288,8 @@ def test_cache_schema():
                         "digest": DIGEST,
                         "embeddings": {"a.md": {"hash": "h", "embedding": [1.0]}},
                     }
-                )
+                ),
+                encoding="utf-8",
             )
             c = tc.load_cache("m1", DIGEST)
             assert_eq("valid version 2 cache loads", 1, len(c["embeddings"]))
@@ -297,7 +299,8 @@ def test_cache_schema():
                     "model": "m1",
                     "digest": "a" * 64,
                     "embeddings": {"a.md": {"hash": "h", "embedding": [1.0]}},
-                })
+                }),
+                encoding="utf-8",
             )
             c = tc.load_cache("m1", DIGEST)
             assert_eq("bare cache digest reuses equivalent proof", 1, len(c["embeddings"]))
@@ -309,7 +312,7 @@ def test_cache_schema():
             assert_eq("model drift -> empty", {}, c["embeddings"])
             assert_eq("model drift -> new model", "m2", c["model"])
 
-            tc.CACHE_PATH.write_text("not-json{{")
+            tc.CACHE_PATH.write_text("not-json{{", encoding="utf-8")
             try:
                 tc.load_cache("m1", DIGEST)
                 raise Fail("FAIL corrupt cache should SystemExit")
@@ -430,7 +433,7 @@ def test_cache_schema():
             assert_true("dimension mismatch report is incomplete", "status: incomplete" in output.getvalue())
             assert_true("dimension mismatch report is provisional", "provisional" in output.getvalue())
 
-            tc.CACHE_PATH.write_text(json.dumps({"version": 999, "embeddings": {}}))
+            tc.CACHE_PATH.write_text(json.dumps({"version": 999, "embeddings": {}}), encoding="utf-8")
             try:
                 tc.load_cache("m1", DIGEST)
                 raise Fail("FAIL wrong version should SystemExit")
@@ -692,8 +695,8 @@ def test_json_conversion_failures_use_controlled_cache_and_threshold_errors():
                     print("OK   JSON conversion failure has controlled threshold error")
                 else:
                     raise Fail("FAIL threshold conversion failure was accepted")
-                assert_eq("failed JSON reads preserve cache", "{}", cache.read_text())
-                assert_eq("failed JSON reads preserve thresholds", "{}", thresholds.read_text())
+                assert_eq("failed JSON reads preserve cache", "{}", cache.read_text(encoding="utf-8"))
+                assert_eq("failed JSON reads preserve thresholds", "{}", thresholds.read_text(encoding="utf-8"))
 
 
 def test_unproved_local_state_precedes_cache_and_page_reads():

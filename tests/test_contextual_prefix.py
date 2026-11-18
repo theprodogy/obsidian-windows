@@ -443,11 +443,11 @@ def test_process_page_prunes_surplus_chunks_and_invalidates_index():
             "body_hash": "sha256:old",
             "page_body_hash": "sha256:old",
         }
-        (chunk_dir / "chunk-000.json").write_text(json.dumps(stale_record))
-        (chunk_dir / "chunk-001.json").write_text(json.dumps(stale_record))
+        (chunk_dir / "chunk-000.json").write_text(json.dumps(stale_record), encoding="utf-8")
+        (chunk_dir / "chunk-001.json").write_text(json.dumps(stale_record), encoding="utf-8")
         index = root / ".vault-meta" / "bm25" / "index.json"
         index.parent.mkdir(parents=True)
-        index.write_text("{}")
+        index.write_text("{}", encoding="utf-8")
 
         original = (
             cp.VAULT_ROOT,
@@ -491,10 +491,10 @@ def test_full_reconcile_removes_deleted_page_chunks():
         orphan_dir = chunks / "c-000099"
         orphan_dir.mkdir(parents=True)
         orphan = orphan_dir / "chunk-000.json"
-        orphan.write_text(json.dumps({"page_path": "wiki/deleted.md"}))
+        orphan.write_text(json.dumps({"page_path": "wiki/deleted.md"}), encoding="utf-8")
         index = root / ".vault-meta" / "bm25" / "index.json"
         index.parent.mkdir(parents=True)
-        index.write_text("{}")
+        index.write_text("{}", encoding="utf-8")
 
         original = (cp.VAULT_ROOT, cp.META_DIR, cp.CHUNKS_DIR, cp.BM25_INDEX_PATH)
         cp.VAULT_ROOT = root

@@ -252,7 +252,7 @@ def test_build_and_query():
                 d.mkdir(exist_ok=True)
                 write_source_page(sandbox, addr, text)
                 chunk = synthetic_chunk(idx, addr, text, text)
-                (d / f"chunk-{idx:03d}.json").write_text(json.dumps(chunk))
+                (d / f"chunk-{idx:03d}.json").write_text(json.dumps(chunk), encoding="utf-8")
 
             # Build index
             index = bm25.build_index()
@@ -547,7 +547,8 @@ def test_query_score_monotonicity():
                         "memory memory rocket banana",
                         "memory memory rocket banana",
                     )
-                )
+                ),
+                encoding="utf-8",
             )
             (chunks_dir / "c-000002" / "chunk-000.json").write_text(
                 json.dumps(
@@ -557,7 +558,8 @@ def test_query_score_monotonicity():
                         "memory rocket banana flute",
                         "memory rocket banana flute",
                     )
-                )
+                ),
+                encoding="utf-8",
             )
             bm25.write_index(bm25.build_index())
             results = bm25.query("memory")
@@ -589,7 +591,8 @@ def test_rebuild_reconciles_changed_and_deleted_source_pages():
         original_text = "current source sentinel"
         page = write_source_page(sandbox, "c-000001", original_text)
         (chunk_dir / "chunk-000.json").write_text(
-            json.dumps(synthetic_chunk(0, "c-000001", original_text, original_text))
+            json.dumps(synthetic_chunk(0, "c-000001", original_text, original_text)),
+            encoding="utf-8",
         )
 
         orig = (bm25.META_DIR, bm25.CHUNKS_DIR, bm25.BM25_DIR, bm25.INDEX_PATH)
@@ -612,7 +615,7 @@ def test_rebuild_reconciles_changed_and_deleted_source_pages():
             assert_eq(
                 "empty rebuild replaces on-disk docs",
                 {},
-                json.loads(bm25.INDEX_PATH.read_text())["docs"],
+                json.loads(bm25.INDEX_PATH.read_text(encoding="utf-8"))["docs"],
             )
 
             page.unlink()

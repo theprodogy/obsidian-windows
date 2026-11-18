@@ -41,7 +41,7 @@ class UpgradeCliTests(unittest.TestCase):
                   'expected_hashes': {'wiki/Note.md': None},
                   'writes': [{'path': 'wiki/Note.md', 'mode': 'create', 'content': '# Note\n'}]}
         path = self.base / 'bundle.json'
-        path.write_text(json.dumps(bundle))
+        path.write_text(json.dumps(bundle), encoding="utf-8")
         run = self.run_cli('workflow', 'inspect', str(path), '--vault', str(self.vault))
         self.assertEqual(1, run.returncode, run.stderr)
         self.assertTrue(json.loads(run.stdout)['storage_valid'])
@@ -53,11 +53,11 @@ class UpgradeCliTests(unittest.TestCase):
 
     def test_malformed_bundles_are_controlled_cli_errors(self):
         deep = self.base / 'deep.json'
-        deep.write_text('[' * 200000 + ']' * 200000)
+        deep.write_text('[' * 200000 + ']' * 200000, encoding="utf-8")
         listed = self.base / 'listed.json'
         listed.write_text(json.dumps({'schema': BUNDLE_SCHEMA, 'operation_id': 'listed', 'operation_type': 'save',
                                       'expected_hashes': {'wiki/x.md': None},
-                                      'writes': [{'path': 'wiki/x.md', 'mode': ['create'], 'content': 'x\n'}]}))
+                                      'writes': [{'path': 'wiki/x.md', 'mode': ['create'], 'content': 'x\n'}]}), encoding="utf-8")
         for path, code in ((deep, 'INVALID_BUNDLE'), (listed, 'INVALID_WRITE_MODE')):
             for command in ('transaction', 'workflow'):
                 with self.subTest(path=path.name, command=command):

@@ -55,7 +55,8 @@ def make_repo(root: Path) -> Path:
     (root / ".raw").mkdir()
     (root / "wiki").mkdir()
     (root / "wiki/index.md").write_text(
-        "---\ntitle: Index\ntype: meta\nstatus: evergreen\ncreated: 2026-01-01\nupdated: 2026-01-01\ntags: [meta]\n---\n# Index\n"
+        "---\ntitle: Index\ntype: meta\nstatus: evergreen\ncreated: 2026-01-01\nupdated: 2026-01-01\ntags: [meta]\n---\n# Index\n",
+        encoding="utf-8",
     )
     git(root, "init", "-q")
     configure_fixture_git(root)
@@ -193,7 +194,7 @@ def test_unrelated_staging_and_drift_are_rejected() -> None:
     with tempfile.TemporaryDirectory() as td:
         root = make_repo(Path(td) / "vault")
         transaction(root)
-        (root / "other.txt").write_text("other\n")
+        (root / "other.txt").write_text("other\n", encoding="utf-8")
         git(root, "add", "other.txt")
         expect_code(
             "UNRELATED_STAGED_CHANGES",
@@ -208,7 +209,7 @@ def test_unrelated_staging_and_drift_are_rejected() -> None:
         )
         assert git(root, "diff", "--cached", "--name-only") == "wiki/Note.md"
         git(root, "reset", "-q", "HEAD", "--", "wiki/Note.md")
-        (root / "wiki/Note.md").write_text("drift\n")
+        (root / "wiki/Note.md").write_text("drift\n", encoding="utf-8")
         expect_code(
             "TRANSACTION_DRIFT",
             lambda: checkpoint_operation(root, "save-one", run_lint=False),
@@ -261,7 +262,7 @@ def test_executable_mode_drift_is_ignored_when_core_filemode_is_false() -> None:
             git(root, "config", "core.filemode", false_value)
             note = root / "wiki/Note.md"
             original = "---\ntitle: Note\ntype: concept\nstatus: developing\ncreated: 2026-01-01\nupdated: 2026-01-01\ntags: [test]\n---\n# Note\nOriginal.\n"
-            note.write_text(original)
+            note.write_text(original, encoding="utf-8")
             note.chmod(0o777)
             git(root, "add", ".")
             git(root, "commit", "-qm", "add executable note")
@@ -371,7 +372,7 @@ def test_temporary_index_freezes_verified_bytes() -> None:
                 and not raced
             ):
                 raced = True
-                (root / "wiki/Note.md").write_text("changed after temporary staging\n")
+                (root / "wiki/Note.md").write_text("changed after temporary staging\n", encoding="utf-8")
             return completed
 
         checkpoint_module._git = racing_git
@@ -389,7 +390,7 @@ def test_temporary_index_freezes_verified_bytes() -> None:
         )
         assert (
             root / "wiki/Note.md"
-        ).read_text() == "changed after temporary staging\n"
+        ).read_text(encoding="utf-8") == "changed after temporary staging\n"
 
 
 def test_retry_finalizes_one_commit_after_final_record_failure() -> None:
@@ -524,7 +525,7 @@ def test_nested_vault_cannot_checkpoint_parent_repository() -> None:
         (root / ".obsidian").mkdir()
         (root / ".raw").mkdir()
         (root / "wiki").mkdir()
-        (root / "wiki/index.md").write_text("# Index\n")
+        (root / "wiki/index.md").write_text("# Index\n", encoding="utf-8")
         git(parent, "add", ".")
         git(parent, "commit", "-qm", "initial")
         transaction(root)

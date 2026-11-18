@@ -182,8 +182,8 @@ apply_bundle(Path(sys.argv[1]), json.loads(sys.argv[2]), approved_plan_sha256=sy
 """
             child = subprocess.run([sys.executable, "-B", "-c", program, str(vault), json.dumps(bundle), approval], cwd=ROOT, capture_output=True, text=True, encoding="utf-8", timeout=15)
             self.assertEqual(91, child.returncode, child.stderr)
-            self.assertEqual("new A\n", (vault / "wiki/A.md").read_text())
-            self.assertEqual("old B\n", (vault / "wiki/B.md").read_text())
+            self.assertEqual("new A\n", (vault / "wiki/A.md").read_text(encoding="utf-8"))
+            self.assertEqual("old B\n", (vault / "wiki/B.md").read_text(encoding="utf-8"))
             before = snapshot(vault)
             cleanup = subprocess.run(["make", "-f", str(ROOT / "Makefile"), "clean-test-state"], cwd=vault, capture_output=True, text=True, encoding="utf-8", timeout=10)
             self.assertNotEqual(0, cleanup.returncode)
@@ -191,7 +191,7 @@ apply_bundle(Path(sys.argv[1]), json.loads(sys.argv[2]), approved_plan_sha256=sy
             with MutationLock(vault, timeout=2, force_stale_lock=True) as lock:
                 self.assertEqual([bundle["operation_id"]], recover_incomplete(vault, mutation_lock=lock))
             for leaf in ("A", "B"):
-                self.assertEqual(f"old {leaf}\n", (vault / f"wiki/{leaf}.md").read_text())
+                self.assertEqual(f"old {leaf}\n", (vault / f"wiki/{leaf}.md").read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":

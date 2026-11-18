@@ -143,20 +143,24 @@ def test_graph_and_scoring_on_temp_vault():
         (wiki / "concepts" / "Frontier.md").write_text(
             "---\ntype: concept\ntitle: Frontier\nupdated: "
             + __import__("datetime").date.today().isoformat()
-            + "\n---\n[[Hub]] [[Alpha]] [[Beta]]\n"
+            + "\n---\n[[Hub]] [[Alpha]] [[Beta]]\n",
+            encoding="utf-8",
         )
         # Hub page: many inbound
         (wiki / "concepts" / "Hub.md").write_text(
-            "---\ntype: concept\ntitle: Hub\nupdated: 2025-01-01\n---\nBody.\n"
+            "---\ntype: concept\ntitle: Hub\nupdated: 2025-01-01\n---\nBody.\n",
+            encoding="utf-8",
         )
         (wiki / "entities" / "Alpha.md").write_text(
-            "---\ntype: entity\ntitle: Alpha\nupdated: 2025-01-01\n---\n[[Hub]]\n"
+            "---\ntype: entity\ntitle: Alpha\nupdated: 2025-01-01\n---\n[[Hub]]\n",
+            encoding="utf-8",
         )
         (wiki / "entities" / "Beta.md").write_text(
-            "---\ntype: entity\ntitle: Beta\nupdated: 2025-01-01\n---\n[[Hub]]\n"
+            "---\ntype: entity\ntitle: Beta\nupdated: 2025-01-01\n---\n[[Hub]]\n",
+            encoding="utf-8",
         )
         # Excluded meta
-        (wiki / "index.md").write_text("---\ntype: meta\n---\n[[Frontier]] [[Hub]]\n")
+        (wiki / "index.md").write_text("---\ntype: meta\n---\n[[Frontier]] [[Hub]]\n", encoding="utf-8")
 
         original_root = bs.VAULT_ROOT
         original_wiki = bs.WIKI_DIR
@@ -206,12 +210,14 @@ def test_graph_excludes_self_loop_unresolved_meta():
         (wiki / "concepts").mkdir(parents=True)
         # Self-loop via alias to itself
         (wiki / "concepts" / "SelfLoop.md").write_text(
-            "---\ntype: concept\ntitle: SelfLoop\nupdated: 2026-04-24\n---\n[[SelfLoop]] [[DoesNotExist]]\n"
+            "---\ntype: concept\ntitle: SelfLoop\nupdated: 2026-04-24\n---\n[[SelfLoop]] [[DoesNotExist]]\n",
+            encoding="utf-8",
         )
         # Target that exists but is meta (excluded)
-        (wiki / "index.md").write_text("---\ntype: meta\n---\nmeta body\n")
+        (wiki / "index.md").write_text("---\ntype: meta\n---\nmeta body\n", encoding="utf-8")
         (wiki / "concepts" / "LinksToMeta.md").write_text(
-            "---\ntype: concept\nupdated: 2026-04-24\n---\n[[index]]\n"
+            "---\ntype: concept\nupdated: 2026-04-24\n---\n[[index]]\n",
+            encoding="utf-8",
         )
 
         original_root = bs.VAULT_ROOT
@@ -263,7 +269,7 @@ def test_included_rejects_symlink():
         wiki = tmp / "wiki"
         wiki.mkdir()
         real = wiki / "real.md"
-        real.write_text("---\ntype: concept\n---\nbody\n")
+        real.write_text("---\ntype: concept\n---\nbody\n", encoding="utf-8")
         link = wiki / "link.md"
         link.symlink_to(real)
 

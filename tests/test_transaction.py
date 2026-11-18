@@ -101,7 +101,7 @@ def test_apply_and_idempotent_result() -> None:
         )
         result = apply_bundle(vault, operation)
         assert result["changed_paths"] == ["wiki/A.md", "wiki/B.md"]
-        assert (vault / "wiki/A.md").read_text() == "# A\n"
+        assert (vault / "wiki/A.md").read_text(encoding="utf-8") == "# A\n"
         assert apply_bundle(vault, operation) == result
 
 
@@ -131,7 +131,7 @@ def test_failure_rolls_back_every_write() -> None:
         assert sha256_file(a) == before
         assert not (vault / "wiki/B.md").exists()
         journal = json.loads(
-            (vault / ".vault-meta/transactions/rollback/journal.json").read_text()
+            (vault / ".vault-meta/transactions/rollback/journal.json").read_text(encoding="utf-8")
         )
         assert journal["state"] == "rolled-back"
 
@@ -179,7 +179,7 @@ def test_expected_hash_conflict_changes_nothing() -> None:
             assert exc.code == "EXPECTED_HASH_MISMATCH"
         else:
             raise AssertionError("hash conflict must fail")
-        assert target.read_text() == "current\n"
+        assert target.read_text(encoding="utf-8") == "current\n"
 
 
 def test_read_preconditions_are_bound_into_plan_approval() -> None:
@@ -1029,12 +1029,12 @@ def test_legacy_canvas_catalog_journals_stay_recoverable() -> None:
         vault = make_vault(Path(td) / "vault")
         catalog = vault / "wiki/canvases/index.md"
         catalog.parent.mkdir()
-        catalog.write_text("old\n")
+        catalog.write_text("old\n", encoding="utf-8")
         tx = vault / ".vault-meta/transactions/canvas-legacy-crashed"
         backups = tx / "backups"
         backups.mkdir(parents=True)
-        (backups / "0000.original").write_text("old\n")
-        catalog.write_text("new\n")
+        (backups / "0000.original").write_text("old\n", encoding="utf-8")
+        catalog.write_text("new\n", encoding="utf-8")
         journal = {
             "schema": "claude-obsidian.transaction-journal.v1",
             "operation_id": "canvas-legacy-crashed",
@@ -1053,12 +1053,12 @@ def test_legacy_canvas_catalog_journals_stay_recoverable() -> None:
             ],
             "applied": [],
         }
-        (tx / "journal.json").write_text(json.dumps(journal))
+        (tx / "journal.json").write_text(json.dumps(journal), encoding="utf-8")
         with MutationLock(vault) as mutation_lock:
             assert recover_incomplete(vault, mutation_lock=mutation_lock) == [
                 "canvas-legacy-crashed"
             ]
-        assert catalog.read_text() == "old\n"
+        assert catalog.read_text(encoding="utf-8") == "old\n"
 
 
 def test_casefold_aliases_and_bundle_collisions_fail_portably() -> None:
@@ -1328,7 +1328,7 @@ def test_raw_payload_replace_rejected() -> None:
     with tempfile.TemporaryDirectory() as td:
         vault = make_vault(Path(td) / "vault")
         source = vault / ".raw/source.md"
-        source.write_text("source\n")
+        source.write_text("source\n", encoding="utf-8")
         try:
             apply_bundle(
                 vault,
@@ -1354,9 +1354,10 @@ def test_address_allocation_is_one_transaction() -> None:
     with tempfile.TemporaryDirectory() as td:
         vault = make_vault(Path(td) / "vault")
         (vault / ".vault-meta").mkdir()
-        (vault / ".vault-meta/address-counter.txt").write_text("1\n")
+        (vault / ".vault-meta/address-counter.txt").write_text("1\n", encoding="utf-8")
         (vault / ".raw/.manifest.json").write_text(
-            json.dumps({"version": 1, "sources": {}, "address_map": {}})
+            json.dumps({"version": 1, "sources": {}, "address_map": {}}),
+            encoding="utf-8",
         )
         result = apply_bundle(
             vault,
@@ -1392,10 +1393,10 @@ def test_address_allocation_is_one_transaction() -> None:
             ".vault-meta/address-counter.txt",
             ".raw/.manifest.json",
         ]
-        assert "address: c-000001" in (vault / "wiki/A.md").read_text()
-        assert "address: c-000002" in (vault / "wiki/B.md").read_text()
-        assert (vault / ".vault-meta/address-counter.txt").read_text() == "3\n"
-        manifest = json.loads((vault / ".raw/.manifest.json").read_text())
+        assert "address: c-000001" in (vault / "wiki/A.md").read_text(encoding="utf-8")
+        assert "address: c-000002" in (vault / "wiki/B.md").read_text(encoding="utf-8")
+        assert (vault / ".vault-meta/address-counter.txt").read_text(encoding="utf-8") == "3\n"
+        manifest = json.loads((vault / ".raw/.manifest.json").read_text(encoding="utf-8"))
         assert manifest["address_map"]["wiki/A.md"] == "c-000001"
         assert manifest["sources"][".raw/source.md"]["hash"] == "a" * 64
 
@@ -1476,7 +1477,7 @@ def test_duplicate_or_unterminated_frontmatter_address_is_rejected() -> None:
             else:
                 raise AssertionError(f"{expected_code} input must be rejected")
             assert not (vault / "wiki/Page.md").exists()
-            assert (vault / ".vault-meta/address-counter.txt").read_text() == "1\n"
+            assert (vault / ".vault-meta/address-counter.txt").read_text(encoding="utf-8") == "1\n"
 
 
 def test_corrupt_address_map_and_exhausted_counter_are_rejected() -> None:
@@ -1842,8 +1843,8 @@ def test_completed_history_drift_does_not_block_unrelated_new_operation() -> Non
             [{"path": "wiki/B.md", "mode": "create", "content": "second\n"}],
         )
         apply_bundle(vault, second)
-        assert (vault / "wiki/A.md").read_text() == "manual Obsidian edit\n"
-        assert (vault / "wiki/B.md").read_text() == "second\n"
+        assert (vault / "wiki/A.md").read_text(encoding="utf-8") == "manual Obsidian edit\n"
+        assert (vault / "wiki/B.md").read_text(encoding="utf-8") == "second\n"
 
 
 def test_operation_id_cannot_hide_different_bundle() -> None:
@@ -2806,12 +2807,12 @@ def test_recover_interrupted_journal() -> None:
     with tempfile.TemporaryDirectory() as td:
         vault = make_vault(Path(td) / "vault")
         original = vault / "wiki/A.md"
-        original.write_text("old\n")
+        original.write_text("old\n", encoding="utf-8")
         tx = vault / ".vault-meta/transactions/crashed"
         backups = tx / "backups"
         backups.mkdir(parents=True)
-        (backups / "0000.original").write_text("old\n")
-        original.write_text("new\n")
+        (backups / "0000.original").write_text("old\n", encoding="utf-8")
+        original.write_text("new\n", encoding="utf-8")
         journal = {
             "schema": "claude-obsidian.transaction-journal.v1",
             "operation_id": "crashed",
@@ -2830,10 +2831,10 @@ def test_recover_interrupted_journal() -> None:
             ],
             "applied": [],
         }
-        (tx / "journal.json").write_text(json.dumps(journal))
+        (tx / "journal.json").write_text(json.dumps(journal), encoding="utf-8")
         with MutationLock(vault) as mutation_lock:
             assert recover_incomplete(vault, mutation_lock=mutation_lock) == ["crashed"]
-        assert original.read_text() == "old\n"
+        assert original.read_text(encoding="utf-8") == "old\n"
 
 
 def test_recovery_conflicts_when_a_replace_target_was_deleted_externally() -> None:
@@ -3187,21 +3188,21 @@ def test_completed_replay_requires_bound_journal_and_bundle() -> None:
             elif change == "operation-type":
                 changed["operation_type"] = "save"
             elif change == "journal-state-type":
-                journal = json.loads(journal_path.read_text())
+                journal = json.loads(journal_path.read_text(encoding="utf-8"))
                 journal["state"] = ["complete"]
-                journal_path.write_text(json.dumps(journal))
+                journal_path.write_text(json.dumps(journal), encoding="utf-8")
             elif change == "journal-coverage":
-                journal = json.loads(journal_path.read_text())
+                journal = json.loads(journal_path.read_text(encoding="utf-8"))
                 journal["writes"] = journal["writes"][:1]
-                journal_path.write_text(json.dumps(journal))
+                journal_path.write_text(json.dumps(journal), encoding="utf-8")
                 changed["changed_paths"] = changed["changed_paths"][:1]
                 changed["hashes"].pop("wiki/two.md")
                 changed["modes"].pop("wiki/two.md")
             else:
-                saved = json.loads(saved_path.read_text())
+                saved = json.loads(saved_path.read_text(encoding="utf-8"))
                 saved["writes"][0]["content"] = "different\n"
-                saved_path.write_text(json.dumps(saved))
-            result_path.write_text(json.dumps(changed))
+                saved_path.write_text(json.dumps(saved), encoding="utf-8")
+            result_path.write_text(json.dumps(changed), encoding="utf-8")
             before = {p.relative_to(vault).as_posix(): p.read_bytes()
                       for p in vault.rglob("*") if p.is_file()}
             try:
@@ -3234,9 +3235,10 @@ def test_ten_concurrent_address_transactions_remain_consistent() -> None:
     with tempfile.TemporaryDirectory() as td:
         vault = make_vault(Path(td) / "vault")
         (vault / ".vault-meta").mkdir()
-        (vault / ".vault-meta/address-counter.txt").write_text("1\n")
+        (vault / ".vault-meta/address-counter.txt").write_text("1\n", encoding="utf-8")
         (vault / ".raw/.manifest.json").write_text(
-            json.dumps({"version": 1, "sources": {}, "address_map": {}})
+            json.dumps({"version": 1, "sources": {}, "address_map": {}}),
+            encoding="utf-8",
         )
         queue: multiprocessing.Queue = multiprocessing.Queue()
         workers = [
@@ -3252,13 +3254,13 @@ def test_ten_concurrent_address_transactions_remain_consistent() -> None:
             assert worker.exitcode == 0
         outcomes = [queue.get(timeout=2) for _ in workers]
         assert all(ok for _, ok, _ in outcomes), outcomes
-        manifest = json.loads((vault / ".raw/.manifest.json").read_text())
+        manifest = json.loads((vault / ".raw/.manifest.json").read_text(encoding="utf-8"))
         addresses = list(manifest["address_map"].values())
         assert len(addresses) == 10
         assert len(set(addresses)) == 10
-        assert (vault / ".vault-meta/address-counter.txt").read_text() == "11\n"
+        assert (vault / ".vault-meta/address-counter.txt").read_text(encoding="utf-8") == "11\n"
         for number in range(10):
-            page = (vault / f"wiki/Page-{number}.md").read_text()
+            page = (vault / f"wiki/Page-{number}.md").read_text(encoding="utf-8")
             address = manifest["address_map"][f"wiki/Page-{number}.md"]
             assert f"address: {address}" in page
 
@@ -3299,7 +3301,7 @@ def test_external_change_to_an_unapplied_target_rolls_back_and_unblocks() -> Non
                 assert target.read_text(encoding="utf-8") == "user edit\n"
             assert (vault / "wiki/C.md").read_text(encoding="utf-8") == "later user edit\n"
             journal = json.loads(
-                (vault / f".vault-meta/transactions/unapplied-{change}/journal.json").read_text()
+                (vault / f".vault-meta/transactions/unapplied-{change}/journal.json").read_text(encoding="utf-8")
             )
             assert journal["state"] == "rolled-back", journal
             assert journal["applied"] == ["wiki/A.md"]
@@ -3344,7 +3346,7 @@ def test_never_started_write_stays_out_of_failed_or_interrupted_rollback() -> No
                     "def edit(path, index):\n"
                     "    if index == 1:\n"
                     "        (vault / 'wiki/B.md').write_text('user B\\n', encoding='utf-8')\n"
-                    "t.apply_bundle(vault, json.loads(Path(sys.argv[3]).read_text()), progress=edit)\n"
+                    "t.apply_bundle(vault, json.loads(Path(sys.argv[3]).read_text(encoding='utf-8')), progress=edit)\n"
                 )
                 completed = subprocess.run(
                     [sys.executable, "-B", "-c", child, str(ROOT), str(vault), str(bundle_path)],
@@ -3372,7 +3374,7 @@ def test_never_started_write_stays_out_of_failed_or_interrupted_rollback() -> No
             assert (vault / "wiki/A.md").read_text(encoding="utf-8") == "old A\n"
             assert (vault / "wiki/B.md").read_text(encoding="utf-8") == external_b, scenario
             journal = json.loads(
-                (vault / f".vault-meta/transactions/{operation['operation_id']}/journal.json").read_text()
+                (vault / f".vault-meta/transactions/{operation['operation_id']}/journal.json").read_text(encoding="utf-8")
             )
             assert journal["state"] == "rolled-back", journal
             assert journal["in_flight"] is None, journal
@@ -3401,8 +3403,8 @@ def test_recovery_skips_journal_writes_that_never_started() -> None:
                 })
             # A applied, B in flight (written, not yet journaled), C never started
             # and later deleted by an external editor.
-            (vault / "wiki/A.md").write_text("new A\n" if state == "applying" else "old A\n", newline="\n")
-            (vault / "wiki/B.md").write_text("new B\n" if state == "applying" else "user B\n", newline="\n")
+            (vault / "wiki/A.md").write_text("new A\n" if state == "applying" else "old A\n", newline="\n", encoding="utf-8")
+            (vault / "wiki/B.md").write_text("new B\n" if state == "applying" else "user B\n", newline="\n", encoding="utf-8")
             journal = {
                 "schema": "claude-obsidian.transaction-journal.v1",
                 "operation_id": "never-started",
@@ -3414,8 +3416,8 @@ def test_recovery_skips_journal_writes_that_never_started() -> None:
             (transaction / "journal.json").write_text(json.dumps(journal), encoding="utf-8")
             with MutationLock(vault) as mutation_lock:
                 assert recover_incomplete(vault, mutation_lock=mutation_lock) == ["never-started"]
-            assert (vault / "wiki/A.md").read_text() == "old A\n"
-            assert (vault / "wiki/B.md").read_text() == ("old B\n" if state == "applying" else "user B\n")
+            assert (vault / "wiki/A.md").read_text(encoding="utf-8") == "old A\n"
+            assert (vault / "wiki/B.md").read_text(encoding="utf-8") == ("old B\n" if state == "applying" else "user B\n")
             assert not (vault / "wiki/C.md").exists()
             retained = json.loads((transaction / "journal.json").read_text(encoding="utf-8"))
             assert retained["state"] == "rolled-back", retained
@@ -3441,15 +3443,15 @@ def test_malformed_replay_and_recovery_state_are_controlled_errors() -> None:
 
     def edit_json(name: str, change):
         def apply(directory: Path) -> None:
-            document = json.loads((directory / name).read_text())
+            document = json.loads((directory / name).read_text(encoding="utf-8"))
             change(document)
-            (directory / name).write_text(json.dumps(document))
+            (directory / name).write_text(json.dumps(document), encoding="utf-8")
         return apply
 
     replay_cases = {
-        "deep-result": lambda directory: (directory / "changed-paths.json").write_text(deep),
-        "deep-journal": lambda directory: (directory / "journal.json").write_text(deep),
-        "deep-bundle": lambda directory: (directory / "bundle.json").write_text(deep),
+        "deep-result": lambda directory: (directory / "changed-paths.json").write_text(deep, encoding="utf-8"),
+        "deep-journal": lambda directory: (directory / "journal.json").write_text(deep, encoding="utf-8"),
+        "deep-bundle": lambda directory: (directory / "bundle.json").write_text(deep, encoding="utf-8"),
         "journal-mode-list": edit_json("journal.json", lambda d: d["writes"][0].__setitem__("mode", ["replace"])),
         "journal-state-prepared": edit_json("journal.json", lambda d: d.__setitem__("state", "prepared")),
     }
@@ -3479,24 +3481,24 @@ def test_malformed_replay_and_recovery_state_are_controlled_errors() -> None:
             _replayable_operation(vault, "malformed-recovery")
             directory = vault / ".vault-meta/transactions/malformed-recovery"
             (directory / "changed-paths.json").unlink()
-            journal = json.loads((directory / "journal.json").read_text())
+            journal = json.loads((directory / "journal.json").read_text(encoding="utf-8"))
             journal["state"] = "applying"
             change(journal)
-            (directory / "journal.json").write_text(json.dumps(journal))
+            (directory / "journal.json").write_text(json.dumps(journal), encoding="utf-8")
             try:
                 recover_incomplete(vault)
             except TransactionRecoveryError as exc:
                 assert exc.code == "CORRUPT_JOURNAL", (name, exc.code)
             else:
                 raise AssertionError(f"malformed recovery journal was accepted: {name}")
-            assert (vault / "wiki/A.md").read_text() == "new A\n"
+            assert (vault / "wiki/A.md").read_text(encoding="utf-8") == "new A\n"
 
     with tempfile.TemporaryDirectory() as td:
         vault = make_vault(Path(td) / "vault")
         path = Path(td) / "deep.json"
-        path.write_text(deep)
+        path.write_text(deep, encoding="utf-8")
         listed = Path(td) / "listed.json"
-        listed.write_text(json.dumps(bundle("listed-mode", [{"path": "wiki/x.md", "mode": ["create"], "content": "x\n"}])))
+        listed.write_text(json.dumps(bundle("listed-mode", [{"path": "wiki/x.md", "mode": ["create"], "content": "x\n"}])), encoding="utf-8")
         for source, code in ((path, "INVALID_BUNDLE"), (listed, "INVALID_WRITE_MODE")):
             for action in (inspect_bundle, apply_bundle):
                 try:
@@ -3553,7 +3555,7 @@ for probe in (lambda: read_vault_regular(vault, 'wiki/Pipe.md'), lambda: _safe_f
         (vault / "wiki/B.md").unlink()
         os.mkfifo(vault / "wiki/B.md")
         source = Path(td) / "bundle.json"
-        source.write_text(json.dumps(operation))
+        source.write_text(json.dumps(operation), encoding="utf-8")
         run = _run_bounded(
             "import runpy, sys; sys.argv = sys.argv[1:]; runpy.run_path(sys.argv[0], run_name='__main__')",
             str(ROOT / "scripts/claude-obsidian.py"), "transaction", "apply", str(source),
@@ -3650,8 +3652,8 @@ def test_canvas_structures_and_reference_paths_are_validated_before_writes() -> 
     with tempfile.TemporaryDirectory() as td:
         base = Path(td)
         vault = make_vault(base / "vault")
-        (vault / "wiki/Existing.md").write_text("# Existing\n")
-        (base / "outside.md").write_text("private\n")
+        (vault / "wiki/Existing.md").write_text("# Existing\n", encoding="utf-8")
+        (base / "outside.md").write_text("private\n", encoding="utf-8")
         (vault / "wiki/Alias.md").symlink_to(base / "outside.md")
         if hasattr(os, "mkfifo"):
             os.mkfifo(vault / "wiki/Pipe.md")
@@ -3705,8 +3707,8 @@ def test_canvas_structures_and_reference_paths_are_validated_before_writes() -> 
                 raise AssertionError("Canvas references must reject nonregular files")
         content = json.dumps(document, indent=1) + "\n"
         apply_bundle(vault, bundle("valid-canvas-structure", [{"path": canvas_path, "mode": "create", "content": content}], operation_type="canvas"))
-        assert (vault / canvas_path).read_text() == content
-        restored = json.loads((vault / canvas_path).read_text())
+        assert (vault / canvas_path).read_text(encoding="utf-8") == content
+        restored = json.loads((vault / canvas_path).read_text(encoding="utf-8"))
         assert restored == document
         assert [node["id"] for node in restored["nodes"]] == ["first", "second"]
 
@@ -3738,7 +3740,7 @@ def test_legacy_canvas_content_stays_recoverable() -> None:
             transaction_module._validate_native_artifact = original_validator
         result = apply_bundle(vault, bundle("after-legacy-canvas", [{"path": "wiki/Later.md", "mode": "create", "content": "# Later\n"}]))
         assert result["changed_paths"] == ["wiki/Later.md"]
-        assert (vault / "wiki/canvases/legacy.canvas").read_text() == "historically accepted content"
+        assert (vault / "wiki/canvases/legacy.canvas").read_text(encoding="utf-8") == "historically accepted content"
 
 
 if __name__ == "__main__":

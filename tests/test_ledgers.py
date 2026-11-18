@@ -65,7 +65,7 @@ def test_migration_preserves_manifest_and_is_idempotent() -> None:
     with tempfile.TemporaryDirectory() as td:
         vault = make_vault(Path(td) / "vault")
         source = vault / ".raw/a.md"
-        source.write_text("source\n")
+        source.write_text("source\n", encoding="utf-8")
         manifest = {
             "version": 1,
             "sources": {
@@ -78,7 +78,7 @@ def test_migration_preserves_manifest_and_is_idempotent() -> None:
             "address_map": {},
         }
         legacy_path = vault / ".raw/.manifest.json"
-        legacy_path.write_text(json.dumps(manifest, indent=2))
+        legacy_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
         before = legacy_path.read_bytes()
         operation = migration_bundle(
             vault, operation_id="migrate", generated_at="2026-07-11T00:00:00Z"
@@ -86,7 +86,7 @@ def test_migration_preserves_manifest_and_is_idempotent() -> None:
         result = apply_bundle(vault, operation)
         assert (
             SOURCE_SCHEMA
-            in (vault / "wiki/meta/ledgers/source-ledger.json").read_text()
+            in (vault / "wiki/meta/ledgers/source-ledger.json").read_text(encoding="utf-8")
         )
         # Ledgers are written in the compact canonical form; the workspace
         # config stays indented for people.
@@ -99,9 +99,9 @@ def test_migration_preserves_manifest_and_is_idempotent() -> None:
                 json.loads(text), sort_keys=True, ensure_ascii=False,
                 separators=(",", ":"),
             ) + "\n", relative
-        assert "\n  " in (vault / ".claude-obsidian.json").read_text()
+        assert "\n  " in (vault / ".claude-obsidian.json").read_text(encoding="utf-8")
         assert (
-            CLAIM_SCHEMA in (vault / "wiki/meta/ledgers/claim-ledger.json").read_text()
+            CLAIM_SCHEMA in (vault / "wiki/meta/ledgers/claim-ledger.json").read_text(encoding="utf-8")
         )
         assert legacy_path.read_bytes() == before
         assert apply_bundle(vault, operation) == result

@@ -33,7 +33,7 @@ class ProspectiveCanvasTests(unittest.TestCase):
                           'expected_hashes': {w['path']: None for w in writes}, 'writes': writes}
                 plan = inspect_bundle(vault, bundle)
                 apply_bundle(vault, bundle, approved_plan_sha256=plan['approval_sha256'])
-                self.assertEqual(content, (vault / 'wiki/canvases/Board.canvas').read_text())
+                self.assertEqual(content, (vault / 'wiki/canvases/Board.canvas').read_text(encoding="utf-8"))
 
 
 if __name__ == '__main__':

@@ -40,11 +40,11 @@ class ExtensionTests(unittest.TestCase):
             result = apply_bundle(vault, bundle)
             self.assertEqual(4, len(result["changed_paths"]))
             self.assertEqual(
-                "1\n", (vault / ".vault-meta/address-counter.txt").read_text()
+                "1\n", (vault / ".vault-meta/address-counter.txt").read_text(encoding="utf-8")
             )
             self.assertIn(
                 "# rollout: 2026-07-11",
-                (vault / ".vault-meta/legacy-pages.txt").read_text(),
+                (vault / ".vault-meta/legacy-pages.txt").read_text(encoding="utf-8"),
             )
 
     def test_existing_values_are_preserved_and_rerun_is_noop(self) -> None:
@@ -55,10 +55,10 @@ class ExtensionTests(unittest.TestCase):
             (meta / "address-counter.txt").write_text("42\n", encoding="utf-8")
             first = self.bundle(vault)
             apply_bundle(vault, first)
-            self.assertEqual("42\n", (meta / "address-counter.txt").read_text())
+            self.assertEqual("42\n", (meta / "address-counter.txt").read_text(encoding="utf-8"))
             second = self.bundle(vault, "dragonscale-second")
             self.assertEqual([], second["writes"])
-            self.assertEqual("42\n", (meta / "address-counter.txt").read_text())
+            self.assertEqual("42\n", (meta / "address-counter.txt").read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":
