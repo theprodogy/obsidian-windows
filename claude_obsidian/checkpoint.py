@@ -111,7 +111,11 @@ def _descriptor_root_path(root: Path) -> tuple[Path, tuple[int, ...]]:
     probe: int | None = None
     try:
         opened = os.fstat(descriptor)
-        probe = fsat.open_dir(candidate)
+        if os.name == "nt":
+            probe = fsat.open_dir(candidate)
+        else:
+            # /proc/self/fd/N is a magic link that must be followed, so no O_NOFOLLOW here
+            probe = os.open(candidate, os.O_RDONLY | getattr(os, "O_CLOEXEC", 0))
         alias = os.fstat(probe)
     except OSError as exc:
         raise CheckpointError(
