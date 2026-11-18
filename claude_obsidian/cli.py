@@ -373,6 +373,7 @@ def _release_epoch(supplied: int | None) -> int:
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,
+        encoding="utf-8",
         check=False,
         timeout=10,
     )

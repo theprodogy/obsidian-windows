@@ -200,6 +200,7 @@ def _git(
         input=input_text,
         capture_output=True,
         text=True,
+        encoding="utf-8",
         check=False,
         timeout=30,
     )
