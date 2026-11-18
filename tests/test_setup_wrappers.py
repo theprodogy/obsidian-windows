@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import os
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -12,6 +13,8 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+# Windows resolves bare "bash" to the System32 WSL launcher before PATH
+BASH = shutil.which("bash") or "bash"
 MODE = ROOT / "scripts/setup-mode.sh"
 DRAGONSCALE = ROOT / "scripts/setup-dragonscale.sh"
 SETUP_VAULT = ROOT / "scripts/setup-vault.sh"
@@ -28,9 +31,12 @@ class SetupWrapperTests(unittest.TestCase):
     def invoke(
         self, script: Path, vault: Path, *arguments: str
     ) -> subprocess.CompletedProcess[str]:
+        environment = os.environ.copy()
+        environment.pop("CLAUDE_OBSIDIAN_VAULT", None)
         return subprocess.run(
-            ["bash", str(script), *arguments],
+            [BASH, str(script), *arguments],
             cwd=vault,
+            env=environment,
             text=True,
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
@@ -52,7 +58,7 @@ class SetupWrapperTests(unittest.TestCase):
         environment.pop("PYTHON", None)
         environment["PATH"] = f"{fake_bin}{os.pathsep}{environment.get('PATH', '')}"
         return subprocess.run(
-            ["bash", str(SETUP_VAULT), *arguments],
+            [BASH, str(SETUP_VAULT), *arguments],
             cwd=parent,
             env=environment,
             text=True,

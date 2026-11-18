@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -10,6 +11,8 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+# Windows resolves bare "bash" to the System32 WSL launcher before PATH
+BASH = shutil.which("bash") or "bash"
 SCRIPT = ROOT / "scripts/setup-retrieve.sh"
 
 
@@ -27,7 +30,7 @@ class SetupRetrieveTests(unittest.TestCase):
 
     def invoke(self, *arguments: str) -> subprocess.CompletedProcess[str]:
         return subprocess.run(
-            ["bash", str(SCRIPT), *arguments],
+            [BASH, str(SCRIPT), *arguments],
             cwd=ROOT,
             text=True,
             stdout=subprocess.PIPE,

@@ -14,6 +14,8 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+# Windows resolves bare "bash" to the System32 WSL launcher before PATH
+BASH = shutil.which("bash") or "bash"
 PYTHON_LAUNCHERS = tuple(sorted((ROOT / "scripts").glob("*.py")))
 SETUP_SCRIPT_NAMES = frozenset(
     {
@@ -141,7 +143,7 @@ class InstalledTreeBoundaryTests(unittest.TestCase):
                 (
                     (
                         [
-                            "bash",
+                            BASH,
                             str(installed / "scripts/setup-dragonscale.sh"),
                             "--vault",
                             str(vault),
@@ -151,7 +153,7 @@ class InstalledTreeBoundaryTests(unittest.TestCase):
                     ),
                     (
                         [
-                            "bash",
+                            BASH,
                             str(installed / "scripts/setup-mode.sh"),
                             "--vault",
                             str(vault),
@@ -161,7 +163,7 @@ class InstalledTreeBoundaryTests(unittest.TestCase):
                     ),
                     (
                         [
-                            "bash",
+                            BASH,
                             str(installed / "scripts/setup-multi-agent.sh"),
                             "--dry-run",
                             "--host",
@@ -171,7 +173,7 @@ class InstalledTreeBoundaryTests(unittest.TestCase):
                     ),
                     (
                         [
-                            "bash",
+                            BASH,
                             str(installed / "scripts/setup-retrieve.sh"),
                             "--vault",
                             str(vault),
@@ -181,7 +183,7 @@ class InstalledTreeBoundaryTests(unittest.TestCase):
                     ),
                     (
                         [
-                            "bash",
+                            BASH,
                             str(installed / "scripts/setup-vault.sh"),
                             "--vault",
                             str(vault),
@@ -191,7 +193,7 @@ class InstalledTreeBoundaryTests(unittest.TestCase):
                     ),
                     (
                         [
-                            "bash",
+                            BASH,
                             str(installed / "scripts/allocate-address.sh"),
                             "--vault",
                             str(vault),
@@ -201,7 +203,7 @@ class InstalledTreeBoundaryTests(unittest.TestCase):
                     ),
                     (
                         [
-                            "bash",
+                            BASH,
                             str(installed / "scripts/detect-transport.sh"),
                             "--vault",
                             str(vault),
@@ -212,7 +214,7 @@ class InstalledTreeBoundaryTests(unittest.TestCase):
                     ),
                     (
                         [
-                            "bash",
+                            BASH,
                             str(installed / "scripts/wiki-lock.sh"),
                             "peek",
                             "wiki/Page.md",

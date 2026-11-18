@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -12,8 +13,10 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+# Windows resolves bare "bash" to the System32 WSL launcher before PATH
+BASH = shutil.which("bash") or "bash"
 SCRIPT = ROOT / "scripts/setup-multi-agent.sh"
-LAUNCH = [sys.executable, str(ROOT / "scripts/setup-multi-agent.py")] if os.name == "nt" else ["bash", str(SCRIPT)]
+LAUNCH = [sys.executable, str(ROOT / "scripts/setup-multi-agent.py")] if os.name == "nt" else [BASH, str(SCRIPT)]
 
 
 def is_link(path: Path) -> bool:

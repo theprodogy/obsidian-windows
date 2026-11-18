@@ -7,6 +7,8 @@ PYTHON ?= python3
 endif
 export PYTHON
 export PYTHONDONTWRITEBYTECODE := 1
+# A user's real vault selection must never reach the hermetic suite
+unexport CLAUDE_OBSIDIAN_VAULT CLAUDE_OBSIDIAN_SESSION_CONTEXT
 
 .PHONY: help test test-python test-shell test-contracts test-package validate \
 	setup-dragonscale setup-retrieve setup-mode

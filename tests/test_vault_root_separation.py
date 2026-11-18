@@ -6,6 +6,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -14,6 +15,8 @@ from pathlib import Path
 
 
 PLUGIN_ROOT = Path(__file__).resolve().parent.parent
+# Windows resolves bare "bash" to the System32 WSL launcher before PATH
+BASH = shutil.which("bash") or "bash"
 SCRIPTS = PLUGIN_ROOT / "scripts"
 CORE_CLI = SCRIPTS / "claude-obsidian.py"
 
@@ -85,7 +88,7 @@ def _run_allocator(
     env: dict[str, str] | None = None,
 ) -> subprocess.CompletedProcess[str]:
     return subprocess.run(
-        ["bash", str(SCRIPTS / "allocate-address.sh"), *arguments],
+        [BASH, str(SCRIPTS / "allocate-address.sh"), *arguments],
         cwd=cwd,
         env=env or _environment(),
         capture_output=True,

@@ -16,6 +16,8 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parent.parent
+# Windows resolves bare "bash" to the System32 WSL launcher before PATH
+BASH = shutil.which("bash") or "bash"
 SCRIPT = ROOT / "scripts" / "setup-vault.sh"
 FIXTURES = ROOT / "tests" / "fixtures" / "setup"
 _OPERATION_COUNTER = itertools.count(1)
@@ -27,7 +29,7 @@ def _run(*arguments: str, cwd: Path | None = None, env: dict[str, str] | None = 
     if env:
         merged.update(env)
     return subprocess.run(
-        ["bash", str(SCRIPT), *arguments],
+        [BASH, str(SCRIPT), *arguments],
         cwd=cwd or ROOT,
         env=merged,
         capture_output=True,
