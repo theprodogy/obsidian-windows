@@ -4,13 +4,13 @@
     {
       "mode": "0644",
       "path": ".claude-plugin/marketplace.json",
-      "sha256": "4b9b3704e602c80ec760ddc4caa38837229ce72a81b1108422c21d96f39e8b67",
+      "sha256": "bb132a74532f6c3a2c0570faf0902e0db319890a6f48068f34d5026cfd27ed37",
       "size": 908
     },
     {
       "mode": "0644",
       "path": ".claude-plugin/plugin.json",
-      "sha256": "c268241e56729d8a7ab061d7c971bb391ec6d23254fb58637060d85bda756280",
+      "sha256": "1d4ed60e3b41dd030a831833fcc23c3cabfec60e3571ca682bcdbc2df62d8f5a",
       "size": 970
     },
     {
@@ -70,8 +70,8 @@
     {
       "mode": "0644",
       "path": ".github/workflows/test.yml",
-      "sha256": "090b0c7df6593d62ba3ca179b7912e8fbc98c752c81024d5ec4130efbb289c64",
-      "size": 4185
+      "sha256": "5758f1cfab723e030146787a857594875aeade1af163f3a9b60d9e8982b6712a",
+      "size": 4342
     },
     {
       "mode": "0644",
@@ -100,13 +100,13 @@
     {
       "mode": "0644",
       "path": "CHANGELOG.md",
-      "sha256": "7f37f7c0c0658bb14628e947a6dfc5c9eef38d88a35af2e6ad30e2e52de74e4d",
-      "size": 35266
+      "sha256": "ab63d4e1294e85811ee11b73f15205b9a1d512587b38dd73ae82b482765a86a6",
+      "size": 35888
     },
     {
       "mode": "0644",
       "path": "CITATION.cff",
-      "sha256": "890ca4e3c18e8ab14db98b559958381fa45398a8a559f203eb89882ff90e07b7",
+      "sha256": "44c0216bc8f07ffc26c6ca45330aaa6a261ce73d32101e11881a4749ac944ec7",
       "size": 468
     },
     {
@@ -142,8 +142,8 @@
     {
       "mode": "0644",
       "path": "Makefile",
-      "sha256": "1c1190bb690f24003b71e0c1a40afa87f271e185be65399dd9a0cd927959b585",
-      "size": 1638
+      "sha256": "70fa5d4cf51bc31ec272481a7ba795eb561a77c705824d00f6f0bae773637cf7",
+      "size": 1704
     },
     {
       "mode": "0644",
@@ -154,8 +154,8 @@
     {
       "mode": "0644",
       "path": "README.md",
-      "sha256": "d6c34f1651bec9f6884f9d1a326e332c3aa9fe34789bdbdb4d19a109a87e4ba3",
-      "size": 22740
+      "sha256": "ba40438647d0306dea87360f85b3f19b840c7436b8dbd53f374f463b58feae71",
+      "size": 22823
     },
     {
       "mode": "0644",
@@ -286,7 +286,7 @@
     {
       "mode": "0644",
       "path": "claude_obsidian/__init__.py",
-      "sha256": "8c0273ddd627c392734ba991a3a0c66b404d986acadc886dd4f87650dac94ce8",
+      "sha256": "861b73b6c5d51306a03686f588bc6722a90b42c6325eade6976de79317a82dd9",
       "size": 296
     },
     {
@@ -310,14 +310,14 @@
     {
       "mode": "0644",
       "path": "claude_obsidian/capture.py",
-      "sha256": "ed0e6c87077dd5a49ec63151ccfe7df684e5a53799daf90cac09f6f8f7429ad7",
-      "size": 85077
+      "sha256": "2a78f4b793995020503db90572feaf6ebd8160b4585bf5c8127b7b2f5ad45112",
+      "size": 86337
     },
     {
       "mode": "0644",
       "path": "claude_obsidian/checkpoint.py",
-      "sha256": "9770df91a8c2db82b2be04abecd04c38f6adf3380fd47907b05e42c811bfe9b6",
-      "size": 50861
+      "sha256": "a9ecb996529e5b2c4c7416d1d74f467ba60ad6651faf0b08fe92913151c97363",
+      "size": 50723
     },
     {
       "mode": "0644",
@@ -339,6 +339,12 @@
     },
     {
       "mode": "0644",
+      "path": "claude_obsidian/fsat.py",
+      "sha256": "a629a71a3e099f6602da501cf12844d31986179460ecd4ef617f28b3a073d9d8",
+      "size": 23448
+    },
+    {
+      "mode": "0644",
       "path": "claude_obsidian/gates.py",
       "sha256": "d36cf301e5c4bbd40e5f225abd9cfa8f2071e59ef918a8a9d119ad4a8932b974",
       "size": 5014
@@ -352,8 +358,8 @@
     {
       "mode": "0644",
       "path": "claude_obsidian/hook_adapter.py",
-      "sha256": "8fd3f6ee2b9c01cdf62d241c29afd3fab2c49376b44cfddf612f4e182bc2b3ca",
-      "size": 13453
+      "sha256": "b6cded242beb10ce169b299718f8c2570b409fde66b06149d23d99fb6e24063b",
+      "size": 13324
     },
     {
       "mode": "0644",
@@ -370,8 +376,8 @@
     {
       "mode": "0644",
       "path": "claude_obsidian/legacy_lock.py",
-      "sha256": "6edd094debd30ac3550974a624e37bc13d1902a355888009778cad812ebe5d18",
-      "size": 24317
+      "sha256": "e704109091372d0888168711566963f1fe0d3c94a95b91e628abdee839605856",
+      "size": 24182
     },
     {
       "mode": "0644",
@@ -382,8 +388,8 @@
     {
       "mode": "0644",
       "path": "claude_obsidian/lint_engine.py",
-      "sha256": "ed5f174047db1c16e966fa4a50f68f7b56c8133dfcb7bb6de2ca66b8ccaeb353",
-      "size": 85520
+      "sha256": "69d4c3e83ce5e0ecfdb3d392d10816eea0f0b04f9b22393e887be08b644bbf8d",
+      "size": 85318
     },
     {
       "mode": "0644",
@@ -418,32 +424,32 @@
     {
       "mode": "0644",
       "path": "claude_obsidian/paths.py",
-      "sha256": "9c58d9a3e96f5355e5fde615ed06efd8412f68b31511640b130cf99b3cbe0be6",
-      "size": 15703
+      "sha256": "ac4213a8e756f84782b03a54486aad33f5fb3a174bbb42cc5e73d64d6488fcbc",
+      "size": 15335
     },
     {
       "mode": "0644",
       "path": "claude_obsidian/prompt_eval.py",
-      "sha256": "51625e2f2dd214a0e85ba59da9665b4a9f3452c89aec006a1f5b6ab289ee0bf4",
-      "size": 31975
+      "sha256": "348cea5f6a0494995fa304b7bbdd15584bbcd5816a9873db2a1cd8981f2fbf69",
+      "size": 32177
     },
     {
       "mode": "0644",
       "path": "claude_obsidian/release.py",
-      "sha256": "a99e4f09821caba7ccfd1f4cc564d7270447db47d3d1938f0d725786f1f49f87",
-      "size": 90792
+      "sha256": "2bafc6835a633b8d1719b3bc19ba7fe0fe50a11e877c7154215e89809b803030",
+      "size": 90821
     },
     {
       "mode": "0644",
       "path": "claude_obsidian/retrieval_eval.py",
-      "sha256": "dd31f586226987bc3a8550cb2ab278b2f3b84a2fea482c0aa296deb9fb81653c",
-      "size": 19760
+      "sha256": "0e3bed816f930ec7544b7ddddff8724028310896ebd62dcb17d6238fe1ba9d6f",
+      "size": 19691
     },
     {
       "mode": "0644",
       "path": "claude_obsidian/transaction.py",
-      "sha256": "f67bc5e037c4bf3c46669e38622dc08e4ad40c6a787fd37c27cdbd0d5a4a3128",
-      "size": 195146
+      "sha256": "5d7a58c53a9296e1fdafe7d8756b697966fe9eacac287c3acd1cb8dd389fb306",
+      "size": 195130
     },
     {
       "mode": "0644",
@@ -496,7 +502,7 @@
     {
       "mode": "0644",
       "path": "config/public-marketplace.json",
-      "sha256": "4b9b3704e602c80ec760ddc4caa38837229ce72a81b1108422c21d96f39e8b67",
+      "sha256": "bb132a74532f6c3a2c0570faf0902e0db319890a6f48068f34d5026cfd27ed37",
       "size": 908
     },
     {
@@ -532,8 +538,8 @@
     {
       "mode": "0644",
       "path": "docs/install-guide.md",
-      "sha256": "5165f52408bf093eac7658487733fbee8ceac2251e4609f35b377c3077caa653",
-      "size": 11408
+      "sha256": "b1aa841b217e4f51e3e14f64bef22cd279ea369aca1e41473f9767379d454b5d",
+      "size": 11410
     },
     {
       "mode": "0644",
@@ -580,8 +586,8 @@
     {
       "mode": "0644",
       "path": "docs/windows-wsl.md",
-      "sha256": "7f2bd871e43ae35976ea4f03fd9fef0bb8e95896c68d2e2d7a2247fa38945a70",
-      "size": 5908
+      "sha256": "fab73dc88734c4c0bc2d13fd0e04b22a7a06f28c33c54c84632ddaa01d882264",
+      "size": 5945
     },
     {
       "mode": "0644",
@@ -676,20 +682,26 @@
     {
       "mode": "0644",
       "path": "hooks/hooks.json",
-      "sha256": "ebfe346ee65f8b028df745106d7fe89c3bae278fac5edc43ad27e6a97aef9797",
-      "size": 745
+      "sha256": "c77aee10f1c0e9f235715638c85c2b23aed229c2bafe222163250f28a9bce4ee",
+      "size": 685
+    },
+    {
+      "mode": "0644",
+      "path": "scripts/allocate-address.py",
+      "sha256": "62848d5388758308e02fab02d59ddf5d67ace09472b837dd7c3cb2b1b412ce85",
+      "size": 3548
     },
     {
       "mode": "0755",
       "path": "scripts/allocate-address.sh",
-      "sha256": "999ffab114d8584bacde49d36c10858a4e86784f84952e3056a150835618f03c",
-      "size": 3139
+      "sha256": "9e50e407770a66a5c69abe13bc8569bd6a4849f12db7dcbffab47392fc80fe4d",
+      "size": 323
     },
     {
       "mode": "0755",
       "path": "scripts/bm25-index.py",
-      "sha256": "8dc8503ae0ed73715b6d2ffef62d95235612e5040e7d0ad2c0309cced90c78ef",
-      "size": 31712
+      "sha256": "c85a64b351d85f3d7d6ee543fc4273c9788e32e32446b50b825d90083d3b9507",
+      "size": 31637
     },
     {
       "mode": "0755",
@@ -706,14 +718,20 @@
     {
       "mode": "0755",
       "path": "scripts/contextual-prefix.py",
-      "sha256": "1d06add8a1a38babe44a335567ea1f450f23a86322e28550fc2c14ae058484fb",
-      "size": 64363
+      "sha256": "d348c7001beffa39920d6313ac57bd119e50c561999f1b8c2874e637eb6adab9",
+      "size": 64254
+    },
+    {
+      "mode": "0644",
+      "path": "scripts/detect-transport.py",
+      "sha256": "8092cddcf8799faf48fa5c45c5c323faedee421cb6344c6a29b7612282bfef7d",
+      "size": 14767
     },
     {
       "mode": "0755",
       "path": "scripts/detect-transport.sh",
-      "sha256": "496251478c05aee658ee8c097b79fe0116a7981915972120392cb46df342d9b4",
-      "size": 18074
+      "sha256": "aa8f5fb3dc6e87ee82c3c3716931c04990206fe55143b526757230f3f8b40532",
+      "size": 323
     },
     {
       "mode": "0755",
@@ -742,32 +760,44 @@
     {
       "mode": "0755",
       "path": "scripts/setup-dragonscale.sh",
-      "sha256": "09ee0475c9fe57d51cad4d617b5f0790ec6ff34e311abc8acd889cf0a83d13ff",
-      "size": 2189
+      "sha256": "0451e3a625fe278504d9de1dc76c6d504d9aa6d405891e8bec45658807ab54e8",
+      "size": 2202
     },
     {
       "mode": "0755",
       "path": "scripts/setup-mode.sh",
-      "sha256": "2d71c2b397eef078bbd9171bdb1cd3185a3b44b0d9324e81a974eb75d95e2c15",
-      "size": 2290
+      "sha256": "fc27b2828149e17c061be6b79095017d7ff41476925c86c783254786ba04a9a1",
+      "size": 2329
+    },
+    {
+      "mode": "0644",
+      "path": "scripts/setup-multi-agent.py",
+      "sha256": "da58c8cbe87f47ef4b41e92d5ff68d7fd48fa9d41ee6793f79228ebed9d70bed",
+      "size": 7181
     },
     {
       "mode": "0755",
       "path": "scripts/setup-multi-agent.sh",
-      "sha256": "6e3c90aa168f1ebd52e1b669ec7815820fafc5f88dc81cf0ca3a8d427f7af332",
-      "size": 5216
+      "sha256": "b1765abf0fef3377d14d9b10b1e44b954dd676c129c43248bf282cad8499234c",
+      "size": 325
+    },
+    {
+      "mode": "0644",
+      "path": "scripts/setup-retrieve.py",
+      "sha256": "07ff287aefd39d91c6481f075482ecc2937c959b0b7fca80825775897320538f",
+      "size": 3804
     },
     {
       "mode": "0755",
       "path": "scripts/setup-retrieve.sh",
-      "sha256": "f2c23e0ec8564a633c618a278f5a23c20c5cc6d593e03f9a777669d536f57b76",
-      "size": 3137
+      "sha256": "d06dbb039ee8734d7baeca3b3fdaa54325f98307eae2f22c4a129c6346d497de",
+      "size": 319
     },
     {
       "mode": "0755",
       "path": "scripts/setup-vault.sh",
-      "sha256": "4926d09f13278ab1b4328f84988dc722e08a8876b80f6482e04ca245c270f580",
-      "size": 5330
+      "sha256": "d6c122a2df0ac266d7ac1866d5577f0b5dda73fba9b93f8924e9fa67f9507baa",
+      "size": 5356
     },
     {
       "mode": "0755",
@@ -778,8 +808,8 @@
     {
       "mode": "0755",
       "path": "scripts/wiki-lock.sh",
-      "sha256": "3bfc9bd31dea36e60855877de12fcbd7a20ac79ea229a5d6a4fd1a681f840d02",
-      "size": 793
+      "sha256": "795310b07183c199c3c30a4244a1a77abe371499ff969697a7801654cdde9c88",
+      "size": 810
     },
     {
       "mode": "0755",
@@ -994,8 +1024,8 @@
     {
       "mode": "0644",
       "path": "skills/wiki/references/operation-transactions.md",
-      "sha256": "182a333e314f948d42504d48505bb76550276db17a27ae6081acfa9273330cd1",
-      "size": 6156
+      "sha256": "928e2aa93f110b2f6792e55c8aa08a6a5ab6fd09cfa2c5ea3b57b8f80794efbd",
+      "size": 6148
     },
     {
       "mode": "0644",
@@ -1080,6 +1110,12 @@
       "path": "templates/vault/wiki/overview.md",
       "sha256": "ea0d59dd920d06a439dc4b7f7eef5d528ed53ea12379279d6712c70f21fcea8e",
       "size": 372
+    },
+    {
+      "mode": "0644",
+      "path": "tests/_lf_fixtures.py",
+      "sha256": "81528bd9ef208f2499fcbb7cd355249a1c0728d17b262e49119d07f79b4d8bae",
+      "size": 494
     },
     {
       "mode": "0644",
@@ -1324,8 +1360,8 @@
     {
       "mode": "0755",
       "path": "tests/test_bm25_index.py",
-      "sha256": "2bb30c2ee1030dee7f4ce02ced9f4dacaf44014eda7b184f1a41f1bf560371ae",
-      "size": 41400
+      "sha256": "17700281790905ff1c9a296ddff2ce7081b99fdcc4bb15daac8257b8d21e01b0",
+      "size": 42381
     },
     {
       "mode": "0755",
@@ -1336,20 +1372,20 @@
     {
       "mode": "0644",
       "path": "tests/test_capacity.py",
-      "sha256": "bf79e20d2f14c30dd251cf6335acd153ac9bccb36db92aeddc72adcb399af0f6",
-      "size": 10566
+      "sha256": "1fe9f220b631c085c097a0d85fb2bb9aaf91754ee15bb207c24f2e9c08809e07",
+      "size": 10720
     },
     {
       "mode": "0644",
       "path": "tests/test_capture.py",
-      "sha256": "bf23779303707bbc90db6bcc3cea5b77eb00411e24b04f8c8e4bd2062da84692",
-      "size": 47348
+      "sha256": "501a38ad78d070991dc2ac323168bd286d87fd0ab308df6abe2f54d9697b75e3",
+      "size": 48714
     },
     {
       "mode": "0644",
       "path": "tests/test_checkpoint.py",
-      "sha256": "d08ee9d466ff7ed76e054dfb9656bd2424ac275211a8ac6ad9bdf0494721a5be",
-      "size": 23495
+      "sha256": "94d069bd31be6711fcc0d5be5c574daf9b55cfcd06e09421f70f2da5e296eb7f",
+      "size": 23870
     },
     {
       "mode": "0644",
@@ -1372,20 +1408,20 @@
     {
       "mode": "0644",
       "path": "tests/test_contextual_prefix.py",
-      "sha256": "969d90ae825e2a1447ce5bdf8a7c010a49e058b9529a2f69d18d8c757e95632f",
-      "size": 88720
+      "sha256": "f9b6f63c046e250d47ef176035789895c1f907c4e073ed9a19a2dc8feaf77b92",
+      "size": 89358
     },
     {
       "mode": "0644",
       "path": "tests/test_contracts.py",
-      "sha256": "1c1e067266149245f761d650e7f262d021c4f7ea066e1c659aee5df2a0a23cee",
-      "size": 18745
+      "sha256": "6b78d7e9e49ddf1e7c6b7e7a320d122e793c12c14d5a77210d0af46435f891b4",
+      "size": 18461
     },
     {
       "mode": "0644",
       "path": "tests/test_detect_transport.py",
-      "sha256": "655484d23e9f1b40cab7fe15a843fe3d20b0029cd1f22a3905d07410a6b36054",
-      "size": 22531
+      "sha256": "b32e0132b189bf90569805b970d47cdcc75ce6a72ad33b77dd6e141222aea9c5",
+      "size": 22907
     },
     {
       "mode": "0644",
@@ -1407,6 +1443,12 @@
     },
     {
       "mode": "0644",
+      "path": "tests/test_fsat.py",
+      "sha256": "862af5310cb232899f522bb1b5c6b4caca0968d387d35b40065867881706386f",
+      "size": 12827
+    },
+    {
+      "mode": "0644",
       "path": "tests/test_gates.py",
       "sha256": "dd1eb8a9b719c5614de9bf95d029fdd0f5d453d782f796c33cb420cdc70781b0",
       "size": 1802
@@ -1420,8 +1462,8 @@
     {
       "mode": "0644",
       "path": "tests/test_hooks.py",
-      "sha256": "827e45f866796eafb85268f1f5a959a83ab74ac955f5eddb300429cdb3ce1e82",
-      "size": 22586
+      "sha256": "f12afbf5b185ed73c1cf229e8c86b70f121b4165a60713b399ceb8b5fa12262d",
+      "size": 22799
     },
     {
       "mode": "0644",
@@ -1438,20 +1480,20 @@
     {
       "mode": "0644",
       "path": "tests/test_ledgers.py",
-      "sha256": "6b41cc66a30ed4b16602de53530bd0e9a5c8d38e1757bee439a1df807caafacf",
-      "size": 80994
+      "sha256": "d6c4ed66cc06e0008a74509a9b3380213cc799dafed90af675cfe4905b3eb7ec",
+      "size": 81090
     },
     {
       "mode": "0644",
       "path": "tests/test_legacy_lock.py",
-      "sha256": "caea67d63c1e54d81479096cc0999c55d77070a52d676344e0cef198662c8b7b",
-      "size": 7439
+      "sha256": "755df6eafba7e83c8db1e43a99ad970fc3223c132de25f71a9da29936b5821c9",
+      "size": 7781
     },
     {
       "mode": "0644",
       "path": "tests/test_lint_engine.py",
-      "sha256": "0c3b7b33e4a24bb3c507fc122c751bb721e92feda607b635e7f3dd41b06649f8",
-      "size": 113025
+      "sha256": "ac9e2e3878ca73c714a9a9277c3a50359b2a5618cd374c75328cb060de3cedaf",
+      "size": 113406
     },
     {
       "mode": "0644",
@@ -1474,8 +1516,8 @@
     {
       "mode": "0644",
       "path": "tests/test_paths.py",
-      "sha256": "1a5c4c4915fefac5ca2ea4569bc909b5fddf63347ad8e6259a6b5e61d20a35d9",
-      "size": 10424
+      "sha256": "9f0adf378b97cb768e4e31910027a13ee5cbc330356321fc0b814fb1b558fc65",
+      "size": 10454
     },
     {
       "mode": "0644",
@@ -1492,26 +1534,26 @@
     {
       "mode": "0644",
       "path": "tests/test_release.py",
-      "sha256": "bbb9b0f3fca6aaf79faa5ef5b2586d515dc3ad5dc250fce4e6b9d8545ae89624",
-      "size": 36213
+      "sha256": "0b0f22aa229823d63448574ec5978732698bb772ef3d15261f30a2d5593bd49d",
+      "size": 36536
     },
     {
       "mode": "0644",
       "path": "tests/test_retrieval_eval.py",
-      "sha256": "ec40e49671d7e6fc018ab1b09375716f882e3fb80e0e698edc96feb91a027ac0",
-      "size": 11837
+      "sha256": "5fe3277982f1236764eb42584c9208fa6f9b46528e13c236ce5c7309ce73ca43",
+      "size": 11933
     },
     {
       "mode": "0755",
       "path": "tests/test_retrieve.py",
-      "sha256": "695a0d84d72d561cec6f9811e0a952a9712750c2dbe10fde909277c57d0b0074",
-      "size": 73025
+      "sha256": "f09d66f4904f131f96d7b46603ec3f4bde32fa6c7d8084a9a65126fd16a95821",
+      "size": 73059
     },
     {
       "mode": "0644",
       "path": "tests/test_setup_multi_agent.py",
-      "sha256": "4342cdad9b99b82a95eb23c3751a4684c8e6e730f827dc81aa75b69bea08ce96",
-      "size": 7546
+      "sha256": "699f4ab6001fbb6fb1fa956546700374816b79754b8aafda91b044e0f38179a7",
+      "size": 7771
     },
     {
       "mode": "0644",
@@ -1528,20 +1570,20 @@
     {
       "mode": "0644",
       "path": "tests/test_setup_wrappers.py",
-      "sha256": "e67824dd76e681f0bcd7ad429161d53c59bbd96a6827b9ad5a7f4e7ae16419e3",
-      "size": 7964
+      "sha256": "d71bccf93f59819776c28068e4896cf5cb93e1e65f4233936696fa8e00eac0ba",
+      "size": 8004
     },
     {
       "mode": "0755",
       "path": "tests/test_tiling_check.py",
-      "sha256": "0c91f95d9dfe9f901d6ccda976f2ec6f37dbd0ce8d175dd23f75906c4430d04e",
-      "size": 45614
+      "sha256": "c6391c9f2b6374329d73e193094fbd2053634a46f02a219fe23ee1c65856ad5e",
+      "size": 45648
     },
     {
       "mode": "0644",
       "path": "tests/test_transaction.py",
-      "sha256": "2534ffe53f2caae5c86407ac074decc80c27470ec25e95c4e59d18be2e4e0d9e",
-      "size": 151038
+      "sha256": "62fce052d2d1eaed6bb96e59fc6b1607a1cd12d0742a7468f55331b914a7944c",
+      "size": 154530
     },
     {
       "mode": "0644",
@@ -1564,8 +1606,8 @@
     {
       "mode": "0755",
       "path": "tests/test_wiki_lock.sh",
-      "sha256": "8e05bdfa9ef177a109453b17894748b75498b303311fb1b4709ce3f379bbafbd",
-      "size": 16939
+      "sha256": "d589ef9ec596ed50e066f6972e604319452f68eba79d13f9ab5b72c1cb9add36",
+      "size": 17198
     },
     {
       "mode": "0644",
@@ -1576,14 +1618,14 @@
     {
       "mode": "0644",
       "path": "tests/test_windows_compat.py",
-      "sha256": "fb1005ad906c16702eb1884318d626c92f8cb65472644ee069c4f1536bb527f8",
-      "size": 20816
+      "sha256": "d7ee1d770025d3ac94dac06562aa46f5974de90302d13eaae7817cdaa26c88d2",
+      "size": 27181
     },
     {
       "mode": "0644",
       "path": "tests/test_workflow.py",
-      "sha256": "ad1f4a232cc0698309e00429caf966a86439187dec67819513e483dbdcd72393",
-      "size": 58705
+      "sha256": "56a93303dd541b3c4ddd246f87c0543bbc3f7f6f96e3a6a985f41e805e4cc3e2",
+      "size": 59268
     }
   ],
   "policy": {
@@ -1601,6 +1643,6 @@
     }
   },
   "schema_version": 1,
-  "source_commit": "b5f4fd0301cec04a240c3ea478a40871af476255",
-  "source_date_epoch": 1792686373
+  "source_commit": "d5ed240c04d17df3e2403e246ce81d2a02a54710",
+  "source_date_epoch": 1795025095
 }
